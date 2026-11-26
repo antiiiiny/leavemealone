@@ -9,7 +9,7 @@
   /* colour */
   --bg: #0B1020; --card: #131B32; --card2: #1D2745; --ink: #EEE9DD; --mute: #98A2BA; --line: #1F2946;
   --pick: #D9B96E; --onpick: #1E1608; /* gold is the one accent: selection, ticks, switches, your marks */
-  --good: #6FBF9A; --warn: #D9A257; --bad: #E67872;
+  --good: #6FBF9A; --warn: #D9A257; --bad: #E67872; --steady: #D6D06A; /* yellow, only for the "steady" slang tag (between orange and green) */
   --ink-hi: #F6F2E8; --ongold: #1E1608; --black: #000; --bg-deep: #070B17; --on-bad: #2A0A08; --on-blue: #0B1020; --on-good: #06281A; --on-light: #111;
   --gold-bg: rgba(217,185,110,.16); --gold-wash: rgba(217,185,110,.07); --gold-line: rgba(217,185,110,.5); --good-bg: rgba(111,191,154,.16);
   --hol: #98A2BA; --holbg: #1D2745; --gold: #D9B96E; --blue: #98A2BA; /* holiday and medical are neutral on purpose */
@@ -103,8 +103,13 @@ svg.ic { width: 16px; height: 16px; flex: none; }
 .it2.click:active { background: color-mix(in srgb, var(--ink) 6%, transparent); transition-duration: var(--d-press); }
 .it2.click.on { background: color-mix(in srgb, var(--pick) 10%, transparent); }
 .it2 > .row > :first-child > b.nm, .it2.minor > .row > :first-child > b.nm { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; font: 500 var(--t13)/1.35 var(--font-head); color: var(--ink); }
-.cl { display: flex; align-items: center; }
-.cl .chip { flex: none; margin-left: 6px; }
+.cl { display: flex; flex-wrap: wrap; align-items: center; column-gap: 8px; row-gap: 2px; min-width: 0; min-height: 21px; } /* code, tag and chip wrap under the name instead of running under the percentage */
+.cl .chip { flex: none; }
+.pcw { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; } /* percentage + chip, with the slang tag under them */
+.pcw .vibe { line-height: 1.2; margin: 0 6px 4px 0; }
+.it2 .row > .pc, .it2 .row > .rr { align-self: flex-start; margin-top: -2px; }
+.it2 .row > .pcw { align-self: stretch; justify-content: space-between; margin-top: -2px; } /* chip at the top, slang tag at the bottom: level with the code line, one line or two */
+.cname { align-self: flex-start; min-height: 40px; } /* a course row's left side is always at least name + code line tall and starts at the top, so a one-line name (with or without a code) has the same top, gap and bar as every other row; a two-line name just adds a line */ /* percentage + chip level with the course name's first line, in every row, however tall the code / tag line below it gets */
 .d { font: 500 var(--t15) var(--font-head); }
 .low { font-size: var(--t13); margin-top: 2px; }
 .low b { font-weight: 600; }
@@ -156,9 +161,9 @@ svg.ic { width: 16px; height: 16px; flex: none; }
 .vibe { font: italic 600 var(--t13)/1.4 var(--font-body); letter-spacing: .01em; white-space: nowrap; }
 .vibe.bad { color: color-mix(in srgb, var(--bad) 88%, var(--ink)); text-decoration: underline wavy color-mix(in srgb, var(--bad) 70%, transparent); text-decoration-thickness: 1.5px; text-underline-offset: 4px; } /* a teacher's red-pen squiggle */
 .vibe.good { color: color-mix(in srgb, var(--good) 90%, var(--ink)); display: inline-block; transform: rotate(-3deg); } /* leaning back, relaxed */
-.pill .vibe.bad { text-decoration: none; }
-.cl .vibe { margin-left: 8px; }
-.cl .vibe:first-child { margin-left: 0; }
+.vibe.tight { color: color-mix(in srgb, var(--warn) 90%, var(--ink)); display: inline-block; transform: rotate(2deg); text-decoration: underline dotted color-mix(in srgb, var(--warn) 70%, transparent); text-decoration-thickness: 1.5px; text-underline-offset: 4px; } /* leaning in, on the edge: dotted line */
+.vibe.steady { color: color-mix(in srgb, var(--steady) 92%, var(--ink)); text-decoration: underline solid color-mix(in srgb, var(--steady) 55%, transparent); text-decoration-thickness: 1.5px; text-underline-offset: 4px; } /* level and unbothered: one straight line */
+.pill .vibe.bad, .pill .vibe.tight, .pill .vibe.steady { text-decoration: none; }
 .chip.good::before { content: "✓ "; } .chip.warn::before { content: "! "; } .chip.bad::before { content: "× "; }
 
 /* ---- buttons, controls ---- */
@@ -310,14 +315,14 @@ svg.ic { width: 16px; height: 16px; flex: none; }
 .dow div { color: var(--mute); font-size: var(--t12); font-weight: 500; padding-bottom: 2px; }
 .cday { height: 40px; border-radius: var(--r-chip); display: flex; flex-direction: column; align-items: center; justify-content: center; font: 500 var(--t13)/1.1 var(--font-body); padding: 0; border: 1px solid transparent; background: transparent; color: var(--ink); }
 .cday i { font-style: normal; font-size: 8px; letter-spacing: 1px; color: var(--mute); }
-.cday.open { border-radius: 8px; background: var(--well); border-color: transparent; box-shadow: var(--in-well); transition: border-color var(--d-hover) var(--ease), transform var(--d-hover) var(--ease); }
+.cday.open { border-radius: var(--r-ctl); background: var(--well); border-color: transparent; box-shadow: var(--in-well); transition: border-color var(--d-hover) var(--ease), transform var(--d-hover) var(--ease); }
 .cday.open:hover { border-color: var(--pick); }
 .cday.open:active, .cday.sel:active { transform: scale(.94); transition-duration: var(--d-press); }
 .cday.open.risk { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--bad) 75%, transparent), var(--in-well); }
-.cday.sel { border-radius: 8px; background: var(--pick); color: var(--onpick); border-color: transparent; box-shadow: var(--sh-sel); }
+.cday.sel { border-radius: var(--r-ctl); background: var(--pick); color: var(--onpick); border-color: transparent; box-shadow: var(--sh-sel); }
 .cday.sel i { color: var(--onpick); }
 .cday.off { color: var(--mute); opacity: .4; }
-.cday.hol { border-radius: 8px; background: var(--holbg); color: var(--hol); }
+.cday.hol { border-radius: var(--r-ctl); background: var(--holbg); color: var(--hol); }
 .cday.empty { visibility: hidden; }
 @keyframes cellIn { from { opacity: 0; transform: translateY(4px); } }
 @keyframes slideF { from { opacity: 0; transform: translateX(14px); } }

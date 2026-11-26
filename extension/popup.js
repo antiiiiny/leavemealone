@@ -6,7 +6,7 @@ const ago = (t) => {
   return m < 1 ? "just now" : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} d ago`;
 };
 
-const STALE_DAYS = 3; // the daily alert uses the same limit (background.js)
+const STALE_DAYS = Calc.STALE_DAYS; // the daily alert uses the same limit (background.js)
 const WELCOME = chrome.runtime.getURL("welcome.html");
 let D = null;        // storage
 let viewSem = null;  // semester shown (defaults to the highest one)
@@ -101,6 +101,11 @@ function readBackup(file) {
   if (!file || file.app !== "leavemealone" || !file.data || typeof file.data !== "object" || Array.isArray(file.data)) return null;
   const data = Object.fromEntries(KEYS.filter((k) => k in file.data).map((k) => [k, file.data[k]]));
   if (data.snapshots && (typeof data.snapshots !== "object" || Array.isArray(data.snapshots))) return null;
+  if (data.snapshots) { // a snapshot without a readable course list would stop the popup from drawing at all
+    const ok = (s) => s && Array.isArray(s.courses) && Number.isFinite(s.syncedAt) && s.courses.every((c) => c && Number.isFinite(c.attended) && Number.isFinite(c.scheduled));
+    for (const k of Object.keys(data.snapshots)) if (!ok(data.snapshots[k])) delete data.snapshots[k];
+    if (data.latest && !data.snapshots[data.latest]) delete data.latest;
+  }
   const at = new Date(file.exportedAt);
   return { data, sems: Object.keys(data.snapshots || {}).length, at: Number.isNaN(at.getTime()) ? null : at };
 }
@@ -157,13 +162,33 @@ function draw() {
   const active = document.activeElement;
   if (active?.classList?.contains("stv")) { pendingDraw = true; return; }
   const focusKey = active?.dataset?.key; // keep keyboard focus on the same control across the rebuild
-  drawAll();
-  if (focusKey) document.querySelector(`[data-key="${focusKey}"]`)?.focus({ preventScroll: true });
+  try { drawAll(); } catch { drawBroken(); }
+  byKey(focusKey)?.focus({ preventScroll: true });
   tourRun?.refresh();
+}
+// What the user last touched. A redraw can change the height of cards above it (the minimum decides which courses are low),
+// so the scroll position is kept by this control's place on screen, not by a fixed offset.
+let lastKey = null;
+document.addEventListener("pointerdown", (e) => { lastKey = e.target.closest?.("[data-key]")?.dataset.key || null; }, true);
+document.addEventListener("focusin", (e) => { lastKey = e.target.dataset?.key || lastKey; });
+const byKey = (k) => (k ? document.querySelector(`[data-key="${CSS.escape(k)}"]`) : null); // escaped: a course name can hold a quote
+
+// Saved data in a shape the popup can't draw (a hand-edited backup, say): say so and offer the way out, instead of a blank popup.
+function drawBroken() {
+  document.getElementById("app").replaceChildren(
+    h("div", { class: "blk free", style: "margin-top:12px" }, h("div", { class: "h3" }, "Couldn't read saved data"),
+      h("p", { class: "sub" }, "Something saved here isn't in the shape the popup expects (or the popup hit a bug). Export a backup first if you want to keep it, then erase to start fresh. The portal is untouched, and the next CUE visit saves a fresh copy."),
+      confirming.has("wipe")
+        ? h("div", { class: "row" }, h("span", { class: "bad" }, "Erase everything saved here?"), h("span", {},
+            h("button", { class: "link", onclick: () => { confirming.delete("wipe"); viewSem = null; chrome.storage.local.remove([...Profile.DATA, "profile", "profiles"]).then(load); } }, "yes"), sep(),
+            h("button", { class: "link", onclick: () => { confirming.delete("wipe"); draw(); } }, "no")))
+        : h("button", { class: "btn danger", onclick: () => { confirming.add("wipe"); draw(); } }, "Erase saved data")),
+    h("div", { class: "blk", style: "margin-top:12px" }, dataRows()));
 }
 function drawAll() {
   const app = document.getElementById("app");
   const y = document.documentElement.scrollTop; // a redraw rebuilds everything: keep the scroll position
+  const anchorTop = byKey(lastKey)?.getBoundingClientRect().top; // where the control you touched sits on screen now
   const snap = D.snapshots[viewSem];
   if (!snap) {
     app.replaceChildren(...[
@@ -214,7 +239,7 @@ function drawAll() {
     h("div", { class: "row" }, h("span", { class: "v", style: `color:var(--${tn})` }, `${op.toFixed(2)}%`), h("span", { class: "sub" }, `${fmt(o.attended)} / ${o.scheduled}h`)),
     bar(op, thr),
     detained.length ? h("p", {}, UI.detain(op) ? UI.vibeLead(op) : null, h("b", {}, plural(detained.length, "course")), ` below ${UI.DETAIN}%.`)
-      : low.length ? h("p", {}, h("b", {}, plural(low.length, "course")), ` ${low.length > 1 ? "are" : "is"} below ${thr}%.`) : h("p", {}, UI.susegad(op) ? UI.vibeLead(op) : null, `All courses are at or above ${thr}%.`),
+      : low.length ? h("p", {}, h("b", {}, plural(low.length, "course")), ` ${low.length > 1 ? "are" : "is"} below ${thr}%.`) : h("p", {}, UI.vibeLead(op, thr), `All courses are at or above ${thr}%.`),
     Math.abs(o.attended - effP.overall.attended) > 1e-9 ? h("p", { class: "sub" }, `Includes ${fmt(Math.abs(o.attended - effP.overall.attended))}h you added. The portal shows ${portalPct.toFixed(2)}%.`) : null,
     o.medical ? h("p", { class: "sub" }, `Medical ${fmt(o.medical)}h: ${Calc.medicalText(o)}`) : null,
     o.ccIncluded ? h("p", { class: "sub" }, "Co-curricular is already included by the portal") : null,
@@ -369,7 +394,7 @@ function drawAll() {
         setRow("ESE target %", [UI.eseFlag(Plan.eseOf(D.eseTarget), Plan.ESE_OVERALL), `Overall % to sit end-sem exams. Official ${Plan.ESE_OVERALL}%, you can set ${Plan.ESE_MIN}% to 100%. `,
           D.eseTarget != null && D.eseTarget !== Plan.ESE_OVERALL ? h("button", { class: "link", onclick: () => chrome.storage.local.remove("eseTarget").then(load) }, `Reset to ${Plan.ESE_OVERALL}%`) : null],
           stepper(Plan.eseOf(D.eseTarget), { min: Plan.ESE_MIN, max: 100, decimals: 1, label: "ESE target", key: "set-ese", onchange: (v) => save({ eseTarget: v }) })), // saved on blur/Enter or +/-: typing "8" on the way to "85" must not save 8
-        h("div", { class: "sub setnote" }, `MSE always needs ${Math.round(Plan.MSE_MIN * 100)}% in every course. 'pakka detain' (below ${UI.DETAIN}%) and 'susegad' (${UI.SUSEGAD}% and up) are fixed too.`)),
+        h("div", { class: "sub setnote" }, `MSE always needs ${Math.round(Plan.MSE_MIN * 100)}% in every course. The slang tags follow fixed lines too: below ${UI.DETAIN}% pakka detain, then eda mone, from ${UI.STEADY}% mastundhi, from ${UI.SUSEGAD}% susegad.`)),
       group("Counting",
         setRow("Medical per course until MSE", "Marked medical hours count in their own course until MSE, then only in the overall (74.5% to 84.49%)",
           toggle(D.medBeforeMse !== false, (v) => save({ medBeforeMse: v }), "Medical per course until MSE", "set-med"))),
@@ -392,11 +417,13 @@ function drawAll() {
   if (bestCard) bestCard.dataset.tour = "best";
 
   app.replaceChildren(...[header, staleBox, supportBox, overall, examCard, bestCard, needs, safeBox, absBox, pending, holBox, adjBox, settings, bestCard && D.timetable ? null : openBtn(), helpBlock(true), h("div", { class: "tagline" }, UI.TAGLINE)].filter(Boolean));
-  document.documentElement.scrollTop = y;
+  const anchor = byKey(lastKey);
+  document.documentElement.scrollTop = anchorTop != null && anchor ? y + anchor.getBoundingClientRect().top - anchorTop : y; // keep that control where it was
 }
 
 function courseRow(c, thr, t, showAfter) {
   const pct = Calc.percent(c.attended, c.scheduled);
+  const vibe = UI.vibeTag(pct, thr);
   const skipN = Calc.canSkip(c.attended, c.scheduled, t);
   const adjusted = !!(c.adj.att || c.adj.sch || c.excusedHrs);
   const tip = adjusted ? `Includes your own changes. Portal ${c.portalAttended}/${c.portalScheduled}, with your marks ${fmt(c.attended)}/${c.scheduled}` : "";
@@ -406,9 +433,9 @@ function courseRow(c, thr, t, showAfter) {
   const afterN = skip && showAfter && k ? h("span", { class: "to" }, `→ ${Calc.percent(c.attended, c.scheduled + k).toFixed(0)}%`) : null;
   return h("div", { class: "it2" },
     h("div", { class: "row" },
-      h("span", {}, h("b", { class: "nm", title: c.name }, c.name || c.code),
-        c.code || adjusted || UI.vibeTag(pct) ? h("div", { class: "cl" }, c.code ? h("span", { class: "sub" }, c.code) : null, UI.vibeTag(pct), adjusted ? chip("mute", "adj", tip) : null) : null),
-      afterN ? h("span", { class: "rr" }, h("span", {}, num, afterN), status) : h("span", { class: "pc" }, num, status)),
+      h("span", { class: "cname" }, h("b", { class: "nm", title: c.name }, c.name || c.code),
+        c.code || adjusted ? h("div", { class: "cl" }, c.code ? h("span", { class: "sub" }, c.code) : null, adjusted ? chip("mute", "adj", tip) : null) : null),
+      afterN ? h("span", { class: "rr" }, h("span", {}, num, afterN), status, vibe) : h("span", { class: "pcw" }, h("span", { class: "pc" }, num, status), vibe)), // the slang tag sits under the chip, in the space beside the code
     bar(pct, thr));
 }
 

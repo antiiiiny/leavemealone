@@ -154,6 +154,12 @@
 
   // one-shot ring on the pill's status dot when it is clicked (re-triggerable)
   const ping = (pill) => { pill.classList.remove("clicked"); void pill.offsetWidth; pill.classList.add("clicked"); };
+  // The floating pill of the attendance and absent drawers: the click runs `onclick`, then the status dot's ring plays once.
+  function makePill(attrs, onclick) {
+    const pill = h("button", { class: "pill", ...attrs, onclick: () => { onclick(); ping(pill); } });
+    pill.addEventListener("animationend", (e) => { if (e.animationName === "dotOrbit") pill.classList.remove("clicked"); });
+    return pill;
+  }
   const rerender = () => { if (A) { attSig = ""; renderAtt(A); } };
   function setOpen(v) {
     if (!v && shell && host?.shadowRoot?.activeElement && shell.drawer.contains(host.shadowRoot.activeElement)) shell.pill.focus(); // don't strand focus in a hidden drawer
@@ -196,13 +202,12 @@
     const now = new Date(), nowMin = now.getHours() * 60 + now.getMinutes(), t0 = today0();
     let date = Plan.upcomingFrom(A.tt, now), cls = [];
     for (let i = 0; i < 30; i++, date = Cal.addDays(date, 1)) {
-      cls = Plan.classesOn(date, A.tt).filter((x) => +date !== +t0 || !(Plan.endMinutes(x.time) <= nowMin));
+      cls = Plan.sortedClassesOn(date, A.tt).filter((x) => +date !== +t0 || !(Plan.endMinutes(x.time) <= nowMin));
       if (cls.length) break;
     }
     if (!cls.length) return null;
     const dkey = Cal.key(date);
     if (todayFor !== dkey) { todayFor = dkey; todayPick = new Set(); }
-    cls = [...cls].sort((a, b) => Plan.periodNum(a.period) - Plan.periodNum(b.period));
     const ofName = Plan.courseOf(eff.courses), courseOf = (x) => ofName(x.name);
     const impactOf = (list) => { const m = {}; for (const x of list) { const c = courseOf(x); if (c) m[c.key] = (m[c.key] || 0) + 1; } return Plan.impact(eff, m, "now", {}, t); };
     const okAlone = (x) => { const c = courseOf(x); if (!c) return null; const r = impactOf([x]).rows[0]; return !r || r.safe; };
@@ -274,7 +279,7 @@
     const hero = h("div", { class: `hero w-${tn}` },
       h("div", { class: "row" }, heroNum, h("span", { class: "sub" }, `${fmt(o.attended)} / ${o.scheduled}h`)),
       bar(op, threshold),
-      h("p", { class: "sub" }, UI.vibeLead(op), op >= threshold ? h("b", {}, `${(op - threshold).toFixed(2)} points above`) : h("b", {}, `${(threshold - op).toFixed(2)} points below`), ` your ${threshold}% minimum`),
+      h("p", { class: "sub" }, UI.vibeLead(op, threshold), op >= threshold ? h("b", {}, `${(op - threshold).toFixed(2)} points above`) : h("b", {}, `${(threshold - op).toFixed(2)} points below`), ` your ${threshold}% minimum`),
       h("p", { class: "sub" }, op < threshold ? (Number.isFinite(Calc.mustAttend(o.attended, o.scheduled, t)) ? `Attend the next ${plural(Calc.mustAttend(o.attended, o.scheduled, t), "class")} to get back to ${threshold}%` : `${threshold}% is out of reach now: a missed class stays missed`)
         : Calc.canSkip(o.attended, o.scheduled, t) ? `You can bunk ${plural(Calc.canSkip(o.attended, o.scheduled, t), "class")} and stay above it` : "No bunks left: one more would put you below it"),
       Math.abs(added) > 1e-9 ? h("p", { class: "sub" }, `Includes ${fmt(Math.abs(added))}h you added. The portal shows ${pp.toFixed(2)}%.`) : null,
@@ -296,6 +301,7 @@
 
     const list = sortCourses(courses, A.sortBy).map((c) => {
       const pct = Calc.percent(c.attended, c.scheduled);
+      const vibe = UI.vibeTag(pct, threshold);
       const adjusted = !!(c.adj.att || c.adj.sch || c.excusedHrs);
       const skip = Calc.canSkip(c.attended, c.scheduled, t);
       const tip = adjusted ? `Includes your own changes. Portal ${c.portalAttended}/${c.portalScheduled}, with your marks ${fmt(c.attended)}/${c.scheduled}` : "";
@@ -304,10 +310,10 @@
       return h("div", { class: `it2 cx${open ? " open" : ""}`, role: "button", tabindex: "0", "aria-expanded": String(open), "data-key": `cx-${c.key}`, onclick: toggle,
           onkeydown: (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(); } } },
         h("div", { class: "row" },
-          h("span", {}, h("b", { class: "nm", title: c.name }, c.name || c.code),
-            c.code || adjusted || UI.vibeTag(pct) ? h("div", { class: "cl" }, c.code ? h("span", { class: "sub" }, c.code) : null, UI.vibeTag(pct), adjusted ? chip("mute", "adj", tip) : null) : null),
-          h("span", { class: "pc" }, h("span", { class: "p", style: `color:var(--${tone(pct, threshold)})` }, `${pct.toFixed(0)}%`),
-            pct < threshold ? chip("bad", mustText(Calc.mustAttend(c.attended, c.scheduled, t))) : chip(skip ? "good" : "warn", skip ? `can bunk ${skip}` : "no bunks left"))),
+          h("span", { class: "cname" }, h("b", { class: "nm", title: c.name }, c.name || c.code),
+            c.code || adjusted ? h("div", { class: "cl" }, c.code ? h("span", { class: "sub" }, c.code) : null, adjusted ? chip("mute", "adj", tip) : null) : null),
+          h("span", { class: "pcw" }, h("span", { class: "pc" }, h("span", { class: "p", style: `color:var(--${tone(pct, threshold)})` }, `${pct.toFixed(0)}%`),
+            pct < threshold ? chip("bad", mustText(Calc.mustAttend(c.attended, c.scheduled, t))) : chip(skip ? "good" : "warn", skip ? `can bunk ${skip}` : "no bunks left")), vibe)), // the slang tag sits under the chip, in the space beside the code
         h("div", { class: "cbar" }, bar(pct, threshold), ico("chev", "ic chev")),
         h("div", { class: "cdet", inert: open ? null : "" }, h("div", {}, needView(c, pct, skip, t, threshold))));
     });
@@ -580,12 +586,14 @@
 
     pill.className = `pill ${tone(op, threshold)}${pill.classList.contains("clicked") ? " clicked" : ""}`;
     pill.setAttribute("aria-expanded", String(A.open));
-    pill.replaceChildren(...[h("i"), `${op.toFixed(2)}%`, UI.detain(op) ? h("span", { class: "sub vibe bad" }, "pakka detain") : lowN ? h("span", { class: "sub" }, `${lowN} low`) : UI.susegad(op) ? h("span", { class: "sub vibe good" }, "susegad") : null].filter(Boolean)); // a null child would print "null"
+    const tag = UI.vibeTag(op, threshold); tag.classList.add("sub");
+    pill.replaceChildren(h("i"), `${op.toFixed(2)}%`, UI.detain(op) ? tag : lowN ? h("span", { class: "sub" }, `${lowN} low`) : tag); // overall low: say so; else "N low" if some course is; else the overall's tag
     sub.replaceChildren(snap.semester, sep(), `minimum ${threshold}%`);
     for (const [id, btn] of tabs) {
       btn.classList.toggle("on", tab === id);
       btn.setAttribute("aria-selected", String(tab === id));
     }
+    body.setAttribute("aria-labelledby", `cue-tab-${tab}`); // the panel is named by the tab that is showing
     drawer.classList.toggle("open", A.open);
     body.classList.toggle("grow", growBars && A.open);
     if (A.open) growBars = false;
@@ -644,18 +652,17 @@
   // Drawer shell, built once per mount of the attendance page.
   let shell = null;
   function buildShell() {
-    const pill = h("button", { class: "pill", "aria-label": "Attendance summary", "data-key": "pill", onclick: () => { setOpen(!attOpen); ping(pill); } });
-    pill.addEventListener("animationend", (e) => { if (e.animationName === "dotOrbit") pill.classList.remove("clicked"); });
+    const pill = makePill({ "aria-label": "Attendance summary", "data-key": "pill" }, () => setOpen(!attOpen));
     const sub = h("div", { class: "sub" });
     const tabs = new Map();
     for (const [id, label] of [["overview", "Overview"], ["plan", "Put a bunk"]]) {
-      tabs.set(id, h("button", { role: "tab", "data-key": `tab-${id}`, onclick: () => { tab = id; growBars = true; calShown = null; rerender(); } }, label));
+      tabs.set(id, h("button", { role: "tab", id: `cue-tab-${id}`, "aria-controls": "cue-panel", "data-key": `tab-${id}`, onclick: () => { tab = id; growBars = true; calShown = null; rerender(); } }, label));
     }
     const tabsBox = h("div", { class: "pills", role: "tablist" }, ...tabs.values());
-    const body = h("div", { class: "dbody" });
+    const body = h("div", { class: "dbody", role: "tabpanel", id: "cue-panel" });
     const drawer = h("div", { class: "drawer", role: "dialog", "aria-label": "Attendance details" },
       h("div", { class: "top" },
-        h("div", {}, h("b", {}, "Attendance"), sub),
+        h("div", {}, h("b", { role: "heading", "aria-level": "2" }, "Attendance"), sub),
         h("button", { class: "xb", "aria-label": "Close", "data-key": "close", onclick: () => setOpen(false) }, ico("close"))),
       tabsBox,
       body,
@@ -812,6 +819,11 @@
   let absSig = "";
   let sel = new Map(); // row key -> "abs" | "cc" | "med" | "later"
 
+  // What the portal's status cell says: the hours ("1 Hr Medical Leave") and whether it already labelled the hour medical / co-curricular, else plain absent.
+  const statusOf = (status) => ({
+    h: parseFloat(/(\d+(?:\.\d+)?)/.exec(status)?.[1] ?? "1") || 1,
+    kind: /medical/i.test(status) ? "med" : /co-?\s*curricular|on\s*duty/i.test(status) ? "cc" : "abs",
+  });
   function parseAbsentRows() {
     return [...document.querySelectorAll("main table tbody tr")]
       .map((tr) => {
@@ -820,10 +832,7 @@
         const date = tds[0].querySelector("p")?.textContent.trim();
         const period = tds[1].querySelector("p")?.textContent.trim();
         if (!date || !period) return null;
-        const status = tds[3].textContent;
-        const hrs = parseFloat(/(\d+(?:\.\d+)?)/.exec(status)?.[1] ?? "1") || 1;
-        // What the portal already says: "1 Hr Medical Leave", a co-curricular status, or plain "Absent".
-        const portal = /medical/i.test(status) ? "med" : /co-?\s*curricular|on\s*duty/i.test(status) ? "cc" : "abs";
+        const { h: hrs, kind: portal } = statusOf(tds[3].textContent); // what the portal already says about this hour
         const day = tds[0].querySelector("span")?.textContent.trim() || ""; // the weekday sits in its own element
         return { k: `${date}|${period}`, date, day, period, type: tds[2].textContent.trim(), h: hrs, portal };
       })
@@ -1044,7 +1053,7 @@
                 else delete cur.excused[ctx.semester][ctx.key];
                 await store.set({ excused: cur.excused });
                 absSig = "";
-                tickAbs();
+                tickAbs(forced); // keep the course picked in the /main/absence filter (without it this resolves to lastCourse: the wrong course)
               } }, "Confirm present")
             );
           })
@@ -1077,9 +1086,7 @@
       const tds = tr.querySelectorAll("td");
       if (tds.length < 5) return null;
       const txt = (td, sel) => td.querySelector(sel)?.textContent.trim() || "";
-      const status = tds[4].textContent;
-      const hrs = parseFloat(/(\d+(?:\.\d+)?)/.exec(status)?.[1] ?? "1") || 1;
-      const kind = /medical/i.test(status) ? "med" : /co-?\s*curricular|on\s*duty/i.test(status) ? "cc" : "abs";
+      const { h: hrs, kind } = statusOf(tds[4].textContent);
       return { date: txt(tds[0], "p"), day: txt(tds[0], "span"), period: txt(tds[1], "p"), time: txt(tds[1], "span"), code: txt(tds[2], "p"), name: txt(tds[2], "span"), type: tds[3].textContent.trim(), kind, h: hrs };
     }).filter((r) => r && r.date && r.period);
   }
@@ -1182,14 +1189,13 @@
     }
     await ensureHost();
     if (!absShell || !dock.contains(absShell.drawer)) {
-      const pill = h("button", { class: "pill", "aria-label": "Absent hours summary", "aria-expanded": "false", onclick: () => { setAbsOpen(!absOpen); ping(pill); } });
-      pill.addEventListener("animationend", (e) => { if (e.animationName === "dotOrbit") pill.classList.remove("clicked"); });
+      const pill = makePill({ "aria-label": "Absent hours summary", "aria-expanded": "false" }, () => setAbsOpen(!absOpen));
       const sub = h("div", { class: "sub sumline" });
       const body = h("div", { class: "blk" });
       // A real on/off switch: the label and track change colour when marking is on.
       const markBtn = h("button", { class: "mkt", role: "switch", "aria-checked": "false", "data-key": "mark-toggle", onclick: () => { absMark = !absMark; drawAbsBody(); } }, h("span", {}, "Mark hours"), h("span", { class: "trk" }));
       const drawer = h("div", { class: "drawer", role: "dialog", "aria-label": "Absent hours" },
-        h("div", { class: "top" }, h("div", {}, h("b", {}, "Absent hours"), sub), h("span", { class: "topa" }, markBtn, h("button", { class: "xb", "aria-label": "Close", onclick: () => setAbsOpen(false) }, ico("close")))),
+        h("div", { class: "top" }, h("div", {}, h("b", { role: "heading", "aria-level": "2" }, "Absent hours"), sub), h("span", { class: "topa" }, markBtn, h("button", { class: "xb", "aria-label": "Close", onclick: () => setAbsOpen(false) }, ico("close")))),
         body, h("div", { class: "tagline" }, UI.TAGLINE));
       dock.replaceChildren(drawer, pill);
       absShell = { pill, sub, body, drawer, markBtn };

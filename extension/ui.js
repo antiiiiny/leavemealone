@@ -9,6 +9,7 @@ const UI = (() => {
       else if (k === "class") el.className = v;
       else if (v !== false && v != null) el.setAttribute(k, v === true ? "" : v);
     }
+    if (/(^| )h3( |$)/.test(el.className)) { el.setAttribute("role", "heading"); el.setAttribute("aria-level", "3"); } // section titles are headings for screen readers
     el.append(...kids.flat(Infinity).filter((x) => x != null && x !== false));
     return el;
   };
@@ -19,18 +20,25 @@ const UI = (() => {
   const ROMAN = { I: 1, II: 2, III: 3, IV: 4, V: 5, VI: 6, VII: 7, VIII: 8 };
   const semRank = (label) => ROMAN[/\b(VIII|VII|VI|V|IV|III|II|I)\s*$/.exec(label.toUpperCase().replace(/\s*\[[^\]]*\]\s*$/, ""))?.[1]] || 0;
   // Below 75% the university detains you, whatever minimum you set in the extension.
-  const DETAIN = 75;
+  const DETAIN = 75; // = Calc.DETAIN (ui.js also loads alone on the welcome page, where Calc isn't there)
   const detain = (pct) => pct < DETAIN;
-  // 85% and up: the ESE overall bar is cleared, nothing to worry about. Susegad (Goan: laid-back, relaxed).
-  const SUSEGAD = 85;
-  const susegad = (pct) => pct >= SUSEGAD;
-  // The tag next to a course: "pakka detain" below 75%, "susegad" at 85% or more, nothing in between.
+  // The slang tags have four tiers on fixed lines (not your minimum), one word each:
+  // low (< 75%, red) pakka detain, tight (75% to < 80%, orange) eda mone, steady (80% to < 85%, yellow) mastundhi, relaxed (85% and up, green) susegad (Goan for laid-back).
+  const STEADY = 80;
+  const SUSEGAD = 85; // = Calc.ESE
+  const TIERS = {
+    low: { cls: "bad", word: "pakka detain", title: () => `Below ${DETAIN}%: not allowed to write the exams unless it comes back up` },
+    tight: { cls: "tight", word: "eda mone", title: () => `${DETAIN}% to ${STEADY}%: above the line, but close` },
+    steady: { cls: "steady", word: "mastundhi", title: () => `${STEADY}% to ${SUSEGAD}%: comfortable` },
+    relaxed: { cls: "good", word: "susegad", title: () => `${SUSEGAD}% or more: relax` },
+  };
+  // Never "relaxed" or "steady" beside "below your minimum": under your own minimum (thr) the best a tag can say is tight.
+  const tierOf = (pct, thr = 0) => (pct < DETAIN ? "low" : pct >= SUSEGAD && pct >= thr ? "relaxed" : pct >= STEADY && pct >= thr ? "steady" : "tight");
+  // The tag next to a course or the overall number.
   // Styled as a quiet italic aside (.vibe), never as a chip: the can-bunk / attend chip stays the loudest thing.
-  const vibeTag = (pct) => detain(pct)
-    ? h("span", { class: "vibe bad", title: `Below ${DETAIN}%: not allowed to write the exams unless it comes back up` }, "pakka detain")
-    : susegad(pct) ? h("span", { class: "vibe good", title: `${SUSEGAD}% or more: relax` }, "susegad") : null;
-  // The same aside as a lead-in for a headline ("pakka detain · ..."), or null. The real message stays the main text.
-  const vibeLead = (pct) => { const t = vibeTag(pct); return t ? [t, " "] : null; };
+  const vibeTag = (pct, thr) => { const t = TIERS[tierOf(pct, thr)]; return h("span", { class: `vibe ${t.cls}`, title: t.title() }, t.word); };
+  // The same aside as a lead-in for a headline ("pakka detain · ..."). The real message stays the main text.
+  const vibeLead = (pct, thr) => [vibeTag(pct, thr), " "];
   // Below the official ESE overall the user can still choose their own target, but it is flagged in red.
   const eseFlag = (pct, official) => (pct < official ? h("div", { class: "sub bad eseflag", role: "status" }, "fine you will pay uh?") : null);
   const tone = (pct, thr) => (pct < thr ? "bad" : pct < thr + 10 ? "warn" : "good");
@@ -137,11 +145,11 @@ const UI = (() => {
     requestAnimationFrame(step);
   };
 
-  // Segmented control: opts = [[value, label], ...]. Used for tabs ("tab") and "Safe means".
-  const pills = (opts, value, onpick, { label, role, keyPrefix } = {}) => {
-    const box = h("div", { class: "pills", role: role === "tab" ? "tablist" : "group", "aria-label": label },
+  // Segmented control: opts = [[value, label], ...]. Used for "Safe means" (the drawer's tabs are built by hand in content.js).
+  const pills = (opts, value, onpick, { label, keyPrefix } = {}) => {
+    const box = h("div", { class: "pills", role: "group", "aria-label": label },
       opts.map(([v, text]) =>
-        h("button", { class: v === value ? "on" : "", role: role === "tab" ? "tab" : null, "aria-selected": role === "tab" ? String(v === value) : null, "aria-pressed": role === "tab" ? null : String(v === value), "data-key": keyPrefix ? `${keyPrefix}-${v}` : null, onclick: () => v !== value && onpick(v) }, text)));
+        h("button", { class: v === value ? "on" : "", "aria-pressed": String(v === value), "data-key": keyPrefix ? `${keyPrefix}-${v}` : null, onclick: () => v !== value && onpick(v) }, text)));
     requestAnimationFrame(() => placeThumb(box, keyPrefix || label)); // after it is in the page
     return box;
   };
@@ -356,5 +364,5 @@ const UI = (() => {
     return { refresh: place, end: () => end(false), get active() { return live; } };
   };
 
-  return { h, diag, eseFlag, semRank, DETAIN, detain, SUSEGAD, susegad, vibeTag, vibeLead, tour, absentSummary, absentDays, daySeg, hrsOf, plural, fmt, tone, dayLabel, niceDate, nicePeriod, startTime, ico, sep, chip, bar, TAGLINE, mustText, breakTag, ABOUT, placeThumb, tween, pills, stepper, toggle, acc };
+  return { h, diag, eseFlag, semRank, DETAIN, detain, STEADY, SUSEGAD, vibeTag, vibeLead, tour, absentSummary, absentDays, daySeg, hrsOf, plural, fmt, tone, dayLabel, niceDate, nicePeriod, startTime, ico, sep, chip, bar, TAGLINE, mustText, breakTag, ABOUT, placeThumb, tween, pills, stepper, toggle, acc };
 })();
