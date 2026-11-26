@@ -434,8 +434,8 @@ function courseRow(c, thr, t, showAfter) {
   return h("div", { class: "it2" },
     h("div", { class: "row" },
       h("span", {}, h("b", { class: "nm", title: c.name }, c.name || c.code),
-        c.code || adjusted || vibe ? h("div", { class: "cl" }, c.code ? h("span", { class: "sub" }, c.code) : null, vibe, adjusted ? chip("mute", "adj", tip) : null) : null),
-      afterN ? h("span", { class: "rr" }, h("span", {}, num, afterN), status) : h("span", { class: "pc" }, num, status)),
+        c.code || adjusted ? h("div", { class: "cl" }, c.code ? h("span", { class: "sub" }, c.code) : null, adjusted ? chip("mute", "adj", tip) : null) : null),
+      afterN ? h("span", { class: "rr" }, h("span", {}, num, afterN), status, vibe) : h("span", { class: "pcw" }, h("span", { class: "pc" }, num, status), vibe)), // the slang tag sits under the chip, in the space beside the code
     bar(pct, thr));
 }
 
