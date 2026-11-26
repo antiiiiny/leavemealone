@@ -131,8 +131,8 @@ const Plan = (() => {
   }
 
   const MSE_MIN = 0.75; // MSE: every course needs this much (there is no overall criterion)
-  const ESE_MIN = 74.5; // the lowest ESE target the user can pick (the medical-leave floor); below the official ESE_OVERALL is allowed but flagged
-  const ESE_OVERALL = 85; // ESE: the overall attendance needed, in percent (courses are not the criterion); medical leave helps the overall get there
+  const ESE_MIN = C.FLOOR; // the lowest ESE target the user can pick (the medical-leave floor); below the official ESE_OVERALL is allowed but flagged
+  const ESE_OVERALL = C.ESE; // ESE: the overall attendance needed, in percent (courses are not the criterion); medical leave helps the overall get there
   // Which numbers decide "safe" for a basis: now = courses and overall, mse = every course, end (ESE) = the overall.
   const minOf = (v) => Math.min(100, Math.max(ESE_MIN, Number.isFinite(Number(v)) && v != null ? Number(v) : 75)); // the saved minimum, never below 74.5
   const eseOf = (v) => Math.min(100, Math.max(ESE_MIN, Number.isFinite(Number(v)) && v != null ? Number(v) : ESE_OVERALL)); // the stored target, or the default

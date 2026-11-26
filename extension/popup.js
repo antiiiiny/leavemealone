@@ -6,7 +6,7 @@ const ago = (t) => {
   return m < 1 ? "just now" : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} d ago`;
 };
 
-const STALE_DAYS = 3; // the daily alert uses the same limit (background.js)
+const STALE_DAYS = Calc.STALE_DAYS; // the daily alert uses the same limit (background.js)
 const WELCOME = chrome.runtime.getURL("welcome.html");
 let D = null;        // storage
 let viewSem = null;  // semester shown (defaults to the highest one)
@@ -162,8 +162,8 @@ function draw() {
   const active = document.activeElement;
   if (active?.classList?.contains("stv")) { pendingDraw = true; return; }
   const focusKey = active?.dataset?.key; // keep keyboard focus on the same control across the rebuild
-  try { drawAll(); } catch (e) { console.error(e); drawBroken(); }
-  if (focusKey) document.querySelector(`[data-key="${focusKey}"]`)?.focus({ preventScroll: true });
+  try { drawAll(); } catch { drawBroken(); }
+  byKey(focusKey)?.focus({ preventScroll: true });
   tourRun?.refresh();
 }
 // What the user last touched. A redraw can change the height of cards above it (the minimum decides which courses are low),
@@ -171,14 +171,18 @@ function draw() {
 let lastKey = null;
 document.addEventListener("pointerdown", (e) => { lastKey = e.target.closest?.("[data-key]")?.dataset.key || null; }, true);
 document.addEventListener("focusin", (e) => { lastKey = e.target.dataset?.key || lastKey; });
-const byKey = (k) => (k ? document.querySelector(`[data-key="${k}"]`) : null);
+const byKey = (k) => (k ? document.querySelector(`[data-key="${CSS.escape(k)}"]`) : null); // escaped: a course name can hold a quote
 
 // Saved data in a shape the popup can't draw (a hand-edited backup, say): say so and offer the way out, instead of a blank popup.
 function drawBroken() {
   document.getElementById("app").replaceChildren(
     h("div", { class: "blk free", style: "margin-top:12px" }, h("div", { class: "h3" }, "Couldn't read saved data"),
-      h("p", { class: "sub" }, "Something saved here isn't in the shape the popup expects. Erasing saved data fixes it. The portal is untouched, and the next CUE visit saves a fresh copy."),
-      h("button", { class: "btn danger", onclick: () => { viewSem = null; chrome.storage.local.remove([...Profile.DATA, "profile", "profiles"]).then(load); } }, "Erase saved data")),
+      h("p", { class: "sub" }, "Something saved here isn't in the shape the popup expects (or the popup hit a bug). Export a backup first if you want to keep it, then erase to start fresh. The portal is untouched, and the next CUE visit saves a fresh copy."),
+      confirming.has("wipe")
+        ? h("div", { class: "row" }, h("span", { class: "bad" }, "Erase everything saved here?"), h("span", {},
+            h("button", { class: "link", onclick: () => { confirming.delete("wipe"); viewSem = null; chrome.storage.local.remove([...Profile.DATA, "profile", "profiles"]).then(load); } }, "yes"), sep(),
+            h("button", { class: "link", onclick: () => { confirming.delete("wipe"); draw(); } }, "no")))
+        : h("button", { class: "btn danger", onclick: () => { confirming.add("wipe"); draw(); } }, "Erase saved data")),
     h("div", { class: "blk", style: "margin-top:12px" }, dataRows()));
 }
 function drawAll() {

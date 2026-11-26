@@ -1,5 +1,10 @@
 // Pure attendance maths. t is a fraction (0.75), a = attended, s = scheduled/conducted.
 const Calc = {
+  // The university's lines, in percent. Everything that needs one reads it from here.
+  FLOOR: 74.5,      // medical leave is only considered from here up; also the lowest minimum / ESE target the user can set
+  DETAIN: 75,       // below this: detained, whatever minimum the user sets
+  ESE: 85,          // the overall needed for ESE; medical leave stops being added at this point
+  STALE_DAYS: 3,    // saved numbers older than this are called out (popup banner, daily alert)
   percent(a, s) {
     return s > 0 ? (a / s) * 100 : 0;
   },
@@ -37,10 +42,10 @@ const Calc = {
   medicalText(o) {
     if (o.medicalState === "applies") {
       const before = Calc.percent(o.withoutMedical, o.scheduled).toFixed(1);
-      return `added, since the aggregate (${before}%) is below 85% → ${Calc.percent(o.attended, o.scheduled).toFixed(1)}%`;
+      return `added, since the aggregate (${before}%) is below ${Calc.ESE}% → ${Calc.percent(o.attended, o.scheduled).toFixed(1)}%`;
     }
-    if (o.medicalState === "not-needed") return "not added, aggregate is already 85% or more";
-    return "not added, aggregate is below 74.5% so medical leave isn't considered";
+    if (o.medicalState === "not-needed") return `not added, aggregate is already ${Calc.ESE}% or more`;
+    return `not added, aggregate is below ${Calc.FLOOR}% so medical leave isn't considered`;
   },
   // Portal snapshot + your own adjustments for that semester:
   // adj = { cocurricular: hrs, courses: { [code]: { att, sch, baseSch } } }
@@ -98,7 +103,7 @@ const Calc = {
     // added to the overall attended; otherwise they are just reported.
     const medical = sum("medHrs");
     const pct = Calc.percent(withCc, scheduled);
-    const medicalState = !medical ? "none" : pct < 74.5 ? "below" : pct < 85 ? "applies" : "not-needed";
+    const medicalState = !medical ? "none" : pct < Calc.FLOOR ? "below" : pct < Calc.ESE ? "applies" : "not-needed";
     const medicalAdded = medicalState === "applies" ? medical : 0;
     return {
       courses,

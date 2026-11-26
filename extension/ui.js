@@ -19,10 +19,10 @@ const UI = (() => {
   const ROMAN = { I: 1, II: 2, III: 3, IV: 4, V: 5, VI: 6, VII: 7, VIII: 8 };
   const semRank = (label) => ROMAN[/\b(VIII|VII|VI|V|IV|III|II|I)\s*$/.exec(label.toUpperCase().replace(/\s*\[[^\]]*\]\s*$/, ""))?.[1]] || 0;
   // Below 75% the university detains you, whatever minimum you set in the extension.
-  const DETAIN = 75;
+  const DETAIN = 75; // = Calc.DETAIN (ui.js also loads alone on the welcome page, where Calc isn't there)
   const detain = (pct) => pct < DETAIN;
   // 85% and up: the ESE overall bar is cleared, nothing to worry about. Susegad (Goan: laid-back, relaxed).
-  const SUSEGAD = 85;
+  const SUSEGAD = 85; // = Calc.ESE
   const susegad = (pct, thr = 0) => pct >= SUSEGAD && pct >= thr; // never beside "below your minimum": with a 90% minimum, 87% is not relaxed
   // The tag next to a course: "pakka detain" below 75%, "susegad" at 85% or more, nothing in between.
   // Styled as a quiet italic aside (.vibe), never as a chip: the can-bunk / attend chip stays the loudest thing.
