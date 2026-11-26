@@ -76,10 +76,10 @@ h1, h2 { text-wrap: balance; }
 .grid .panel-card { display: flex; flex-direction: column; gap: 10px; }
 .grid .panel-card h2 { font-size: 20px; }
 .grid .panel-card p { max-width: 32em; }
-.card-act { display: flex; align-items: center; min-height: 64px; padding-top: 8px; } /* both rows are as tall as the QR and centre their controls on one line */
+.card-act { display: flex; align-items: center; min-height: 72px; padding-top: 8px; } /* both rows are as tall as the QR and centre their controls on one line */
 .w-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 20px; }
-.pay-row { display: flex; align-items: center; gap: 14px; }
-.upi-col { display: grid; gap: 6px; min-width: 0; }
+.pay-row { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 12px; } /* QR, UPI ID and Copy on one line, centred like the GitHub row beside it */
+.pay-row .qr-thumb { margin-right: 4px; }
 .upi { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 code { font: 500 13.5px ui-monospace, "Cascadia Mono", Consolas, monospace; color: var(--gold); background: var(--gold-bg); padding: 6px 10px; border-radius: var(--r-ctl); }
 .qr-thumb { display: grid; padding: 0; border: 0; background: none; cursor: zoom-in; flex: none;
@@ -159,6 +159,7 @@ code { font: 500 13.5px ui-monospace, "Cascadia Mono", Consolas, monospace; colo
 @keyframes enter { from { opacity: 0; transform: translateY(8px); } }
 @media (max-width: 780px) {
   .hello, .grid { grid-template-columns: minmax(0, 1fr); }
+  .grid { row-gap: 44px; }
   .page { gap: 40px; }
 }
 @media (max-width: 440px) {

@@ -319,7 +319,7 @@ function drawAll() {
               : null),
             parts.length ? h("div", { class: "sub" }, parts.join(", "), c.excusedHrs ? [sep(), `${pc(effP.courses.find((x) => x.key === c.key) || c).toFixed(1)}% → `, h("b", { class: tone(pc(c), thr) }, `${pc(c).toFixed(1)}%`)] : null) : null,
             c.goneHrs ? h("div", { class: "sub warn" }, `${fmt(c.goneHrs)}h updated on the portal: open its View Details and press Confirm present.`) : null,
-            c.stale && !c.goneHrs ? h("div", { class: "sub warn" }, "The portal's numbers changed since you marked this. Check it.") : null);
+            c.staleMarks ? h("div", { class: "sub warn" }, "The portal shows fewer absent hours than when you marked: open its View Details to check") : null);
         }),
         eff.overall.goneHrs ? openBtn("Open CUE to confirm") : null)
     : null;

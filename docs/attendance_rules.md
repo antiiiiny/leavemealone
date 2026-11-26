@@ -39,7 +39,7 @@ This is what the Overview, the pill, the planner, the toolbar popup and the dail
 5. **Medical** hours count in the **overall** only by the portal's band: overall (with co-curricular) **below 74.5%: not considered; 74.5% up to 84.49%: added; 85% or more: not needed**. Not capped at 85%.
    **Per course, until the MSE is over** (through the last day of the MSE window), medical hours also count as attended in their own course, so they help the MSE 75% line. From the day after the MSE window they reset: courses no longer count them, and only the overall band above applies. This is the Settings toggle "Medical counts per course until MSE" (`medBeforeMse`, on by default; `Plan.medInCourse`).
 6. Marked hours are never more than the portal's own absent count for that course (scaled down if they are). An hour the portal stops listing as absent is already in its numbers and is not counted again.
-7. If the portal's scheduled or absent count changes after you marked something, the mark is flagged "needs review".
+7. "Needs review" appears when the portal's scheduled count changes after you typed in hours (it may now include them), or when it shows FEWER absent hours than when you marked (it may have updated an hour you marked). A new absence never flags anything. Opening the absent pages re-checks the marks and moves the base to today's count, and "Looks right" on the line accepts the portal's current counts.
 8. The portal's own labels (e.g. "Medical Leave", co-curricular) are locked and read as marks.
 
 ## 5. The planner (`Plan`)

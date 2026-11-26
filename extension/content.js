@@ -270,6 +270,17 @@
     return lines;
   }
 
+  // "Looks right" on a review line: take the portal's current counts as the new base, so the line goes away.
+  async function acceptReview(key) {
+    const sem = A.snap.semester, c = A.snap.courses.find((x) => (x.code || x.name) === key);
+    if (!c) return;
+    const d = await store.get({ adjust: {}, excused: {} });
+    const a = d.adjust[sem]?.courses?.[key], e = d.excused[sem]?.[key];
+    if (a) a.baseSch = c.scheduled;
+    if (e && c.absent != null) e.baseAbsent = c.absent;
+    await store.set({ adjust: d.adjust, excused: d.excused }); // storage.onChanged redraws the drawer
+  }
+
   // ---- Overview tab
   function overviewView(eff, threshold, t) {
     const o = eff.overall;
@@ -294,8 +305,11 @@
     const review = effMarks.courses.filter((c) => c.stale || c.goneHrs);
     const reviewBox = review.length
       ? h("div", { class: "warnbox" }, h("b", {}, "Needs review"),
-          review.map((c) => h("div", { class: "sub" }, `${c.code || c.name}: `,
-            c.goneHrs ? `${fmt(c.goneHrs)}h updated on the portal. Open View Details and press Confirm present.` : "the portal's numbers changed since you adjusted this. Check it.")))
+          review.map((c) => h("div", { class: "sub rv" }, h("span", {}, `${c.code || c.name}: `,
+            c.goneHrs ? `${fmt(c.goneHrs)}h updated on the portal. Open View Details and press Confirm present`
+              : c.staleAdj ? "the portal's class count changed since you typed in hours. It may include them now"
+              : "the portal shows fewer absent hours than when you marked. Open View Details to check"),
+            c.goneHrs ? null : h("button", { class: "link", onclick: () => acceptReview(c.key) }, "Looks right"))))
       : null;
 
     const sortBar = h("div", { class: "sec" },
@@ -915,9 +929,11 @@
     const courseNow = courseIn(d.snapshots[ctx.semester], ctx.key);
 
     // Reconcile what we saved with what the portal shows now.
+    // Once checked against the course's own list, the marks are current, so the review base moves to today's absent count.
     const saved = reconcileMarks(e0?.rows || [], rows);
-    if (JSON.stringify(saved) !== JSON.stringify(e0?.rows || [])) {
-      if (saved.length) m[ctx.key] = { rows: saved, baseAbsent: e0?.baseAbsent ?? courseNow?.absent ?? undefined };
+    const base = courseNow?.absent ?? e0?.baseAbsent;
+    if (JSON.stringify(saved) !== JSON.stringify(e0?.rows || []) || (saved.length && base !== e0?.baseAbsent)) {
+      if (saved.length) m[ctx.key] = { rows: saved, baseAbsent: base ?? undefined };
       else delete m[ctx.key];
       await store.set({ excused: d.excused });
     }
@@ -977,9 +993,10 @@
       const rows = list.filter((r) => courseOf.get(r) === c).map((r) => ({ k: `${r.date}|${r.period}`, h: r.h, portal: r.kind }));
       const before = m[key]?.rows || [];
       const after = reconcileMarks(before, rows, complete);
-      if (JSON.stringify(after) === JSON.stringify(before)) continue;
+      const base = complete ? c.absent ?? m[key]?.baseAbsent : m[key]?.baseAbsent ?? c.absent; // a complete list checked every mark
+      if (JSON.stringify(after) === JSON.stringify(before) && (!after.length || base === m[key]?.baseAbsent)) continue;
       changed = true;
-      if (after.length) m[key] = { rows: after, baseAbsent: m[key]?.baseAbsent ?? c.absent ?? undefined }; else delete m[key];
+      if (after.length) m[key] = { rows: after, baseAbsent: base ?? undefined }; else delete m[key];
     }
     if (changed) await store.set({ excused: d.excused });
   }

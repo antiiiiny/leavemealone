@@ -82,7 +82,11 @@ const Calc = {
       const f = c.absent != null && total > c.absent ? c.absent / total : 1; // never more than the portal's absent hrs
       const later = sums.later * f, cc = sums.cc * f, med = sums.med * f;
       const excusedHrs = later + cc + med;
-      const absentMoved = !!e && c.absent != null && e.baseAbsent !== undefined && e.baseAbsent !== c.absent;
+      // Review flags. Typed hours: the portal's scheduled count moved (it may now include them). Marks: the portal shows
+      // FEWER absent hours than when you marked (it may have updated one you marked) and the absent page hasn't sorted it
+      // out yet (no gone hours). A new absence (more absent hours) is normal and never flags anything.
+      const staleAdj = !!has && x.baseSch !== undefined && x.baseSch !== c.scheduled;
+      const staleMarks = !!e && c.absent != null && e.baseAbsent != null && c.absent < e.baseAbsent && !goneHrs;
       return {
         ...c,
         key,
@@ -92,7 +96,7 @@ const Calc = {
         portalScheduled: c.scheduled,
         attended: c.attended + (x.att || 0) + later,
         scheduled: c.scheduled + (x.sch || 0),
-        stale: (!!has && x.baseSch !== undefined && x.baseSch !== c.scheduled) || absentMoved,
+        staleAdj, staleMarks, stale: staleAdj || staleMarks,
       };
     });
     // Co-curricular claims (typed or marked on Absent Details) add to the overall aggregate only.

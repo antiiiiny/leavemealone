@@ -542,3 +542,5 @@ body.cue .hero .v { font-size: 44px; }
   .tour-card { transition: none !important; animation: fadeIn 150ms linear both !important; }
 }
 @keyframes fadeIn { from { opacity: 0; } }
+.warnbox .rv { display: flex; justify-content: space-between; align-items: baseline; gap: var(--s3); margin-top: var(--s1); }
+.warnbox .rv .link { flex: none; }
