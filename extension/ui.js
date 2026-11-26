@@ -16,9 +16,15 @@ const UI = (() => {
 
   const plural = (n, word) => `${n} ${n === 1 ? word : word + (word.endsWith("s") ? "es" : "s")}`; // 1 class, 2 classes
   const fmt = (n) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
-  // Semester labels end in a Roman numeral ("... VI"): its value, for picking the latest one (0 if none).
-  const ROMAN = { I: 1, II: 2, III: 3, IV: 4, V: 5, VI: 6, VII: 7, VIII: 8 };
-  const semRank = (label) => ROMAN[/\b(VIII|VII|VI|V|IV|III|II|I)\s*$/.exec(label.toUpperCase().replace(/\s*\[[^\]]*\]\s*$/, ""))?.[1]] || 0;
+  // Semester labels end in a number, usually Roman ("... VI"; five-year programmes go to X), sometimes "6": its value, for picking the latest one (0 if none).
+  const ROMAN = { I: 1, II: 2, III: 3, IV: 4, V: 5, VI: 6, VII: 7, VIII: 8, IX: 9, X: 10, XI: 11, XII: 12 };
+  const semRank = (label) => {
+    const s = (label || "").toUpperCase().replace(/\s*\[[^\]]*\]\s*$/, "").trim();
+    return ROMAN[/\b(XII|XI|X|IX|VIII|VII|VI|V|IV|III|II|I)$/.exec(s)?.[1]] || parseInt(/(\d{1,2})$/.exec(s)?.[1], 10) || 0;
+  };
+  // Saved semesters, newest first: the highest number, and between equal ones (a label with no number at all) the one read most recently.
+  // Never the insertion order: with equal ranks that put the OLDEST semester first, so marks went to a semester the drawer wasn't showing.
+  const semOrder = (snaps) => Object.keys(snaps || {}).sort((a, b) => semRank(b) - semRank(a) || ((snaps[b] && snaps[b].syncedAt) || 0) - ((snaps[a] && snaps[a].syncedAt) || 0));
   // Below 75% the university detains you, whatever minimum you set in the extension.
   const DETAIN = 75; // = Calc.DETAIN (ui.js also loads alone on the welcome page, where Calc isn't there)
   const detain = (pct) => pct < DETAIN;
@@ -364,5 +370,5 @@ const UI = (() => {
     return { refresh: place, end: () => end(false), get active() { return live; } };
   };
 
-  return { h, diag, eseFlag, semRank, DETAIN, detain, STEADY, SUSEGAD, vibeTag, vibeLead, tour, absentSummary, absentDays, daySeg, hrsOf, plural, fmt, tone, dayLabel, niceDate, nicePeriod, startTime, ico, sep, chip, bar, TAGLINE, mustText, breakTag, ABOUT, placeThumb, tween, pills, stepper, toggle, acc };
+  return { h, diag, eseFlag, semRank, semOrder, DETAIN, detain, STEADY, SUSEGAD, vibeTag, vibeLead, tour, absentSummary, absentDays, daySeg, hrsOf, plural, fmt, tone, dayLabel, niceDate, nicePeriod, startTime, ico, sep, chip, bar, TAGLINE, mustText, breakTag, ABOUT, placeThumb, tween, pills, stepper, toggle, acc };
 })();

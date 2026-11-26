@@ -23,12 +23,17 @@
   };
   const semester = () => (document.querySelector('[role="combobox"]')?.textContent.trim() || "unknown").replace(/\s*\[[^\]]*\]\s*$/, ""); // the portal adds "[On Roll]" / "[Semester Completed]"
   const plain = (k) => k.replace(/\s*\[[^\]]*\]\s*$/, "");
-  // Data saved while the label still carried the bracket moves to the plain label (the newer bracketed copy wins).
-  function plainKeys(o) {
+  // Data saved while the label still carried the bracket moves to the plain label. `merge(plainCopy, bracketedCopy)` combines the two when both
+  // exist (marks are per course: the newer bracketed copy wins for ITS courses but must not wipe the plain copy's other courses); without it the bracketed copy replaces.
+  function plainKeys(o, merge) {
     let moved = false;
-    for (const k of Object.keys(o || {})) if (plain(k) !== k) { o[plain(k)] = o[k]; delete o[k]; moved = true; }
+    for (const k of Object.keys(o || {})) if (plain(k) !== k) { const p = plain(k); o[p] = merge && o[p] ? merge(o[p], o[k]) : o[k]; delete o[k]; moved = true; }
     return moved;
   }
+  const MERGE = {
+    excused: (a, b) => ({ ...a, ...b }),
+    adjust: (a, b) => ({ ...a, ...b, courses: { ...(a.courses || {}), ...(b.courses || {}) } }),
+  };
   const COURSE_TABLE = 'table[aria-label="coursewise attendance table"]';
   const { h, plural, fmt, tone, mustText, bar, dayLabel, niceDate, nicePeriod, startTime, ico, sep, chip, pills, stepper, acc, tween, placeThumb, absentSummary, absentDays, daySeg, hrsOf } = UI;
 
@@ -708,6 +713,21 @@
   // The observer fires on every portal DOM change (MUI animations, ripples). When the table reads the same as last time and the
   // drawer is already drawn, there is nothing to do, so skip the storage round trip. The 30s cap still refreshes "synced".
   let lastRead = "", lastReadAt = 0;
+  // Marks the numbers can't use: Calc never counts more marked hours than the portal's own absent hours for the course. That used to be
+  // silent, so "nothing updates" looked like a broken extension. Say how much is left out and offer a report (counts only, no hours or names).
+  const markedHrs = (rows, hasCc) => (rows || []).filter((r) => !r.gone && !(hasCc && r.p && r.s === "cc")).reduce((n, r) => n + r.h, 0);
+  function markNote(marked, counted, hasCc) {
+    const lost = marked - counted;
+    if (!(lost > 0.01)) return null;
+    const report = () => {
+      const lines = UI.diag({ version: chrome.runtime.getManifest().version, page: location.pathname, found: `some marked hours are not counted: yes; co-curricular column: ${hasCc ? "yes" : "no"}` });
+      const body = ["**Type:** Bug", "**Where:** Absent details, Mark hours", "", "My marked hours are not all counted in my attendance.", "", "---", "Added automatically (no hours, names or numbers):", ...lines.map((l) => `- ${l}`)].join("\n");
+      window.open(`${UI.ABOUT.repo}/issues/new?title=${encodeURIComponent("[Bug] Marked hours are not counted")}&body=${encodeURIComponent(body)}`, "_blank", "noopener");
+    };
+    return h("div", { class: "warnbox" }, h("b", {}, `${fmt(lost)}h of your marks aren't counted`),
+      h("div", { class: "sub" }, "The portal lists fewer absent hours for this course than you marked, so the extra can't be added to your attendance. If that looks wrong, "),
+      h("button", { class: "link", onclick: report }, "report it"));
+  }
   // Opens a pre-filled GitHub issue (the person reviews it and presses Submit). It says what the page looked like, never what it said.
   function reportUnread() {
     const found = `found: table ${document.querySelector(COURSE_TABLE) ? "yes" : "no"}, grid cards ${document.querySelectorAll(CARD).length}, view toggle ${document.querySelector('[aria-label="table view"]') ? "yes" : "no"}, tabs ${document.querySelectorAll('[role="tab"]').length}`;
@@ -721,7 +741,7 @@
     if (snap && attSig && readKey === lastRead && Date.now() - lastReadAt < 30000 && dock?.isConnected && shell && dock.contains(shell.drawer)) return;
     const d = await store.get({ threshold: 75, latest: null, snapshots: {}, adjust: {}, excused: {}, sortBy: "portal", timetable: null, timetableSem: null, bunkBasis: "now", eseTarget: null, medBeforeMse: true, bunkPlan: {}, absentList: null });
     const fix = {};
-    for (const k of ["snapshots", "adjust", "excused", "bunkPlan"]) if (plainKeys(d[k])) fix[k] = d[k];
+    for (const k of ["snapshots", "adjust", "excused", "bunkPlan"]) if (plainKeys(d[k], MERGE[k])) fix[k] = d[k];
     if (d.timetableSem && plain(d.timetableSem) !== d.timetableSem) fix.timetableSem = plain(d.timetableSem);
     if (d.absentList?.sem && plain(d.absentList.sem) !== d.absentList.sem) fix.absentList = { ...d.absentList, sem: plain(d.absentList.sem) };
     if (Object.keys(fix).length) await store.set(fix);
@@ -740,7 +760,7 @@
       const same = prev && JSON.stringify([prev.overall, prev.courses, prev.hasCc]) === JSON.stringify([snap.overall, snap.courses, snap.hasCc]);
       if (same && Date.now() - prev.syncedAt < 60000) snap.syncedAt = prev.syncedAt; // unchanged: don't rewrite storage on every tick
       d.snapshots[snap.semester] = snap;
-      const latest = Object.keys(d.snapshots).sort((a, b) => UI.semRank(b) - UI.semRank(a))[0];
+      const latest = UI.semOrder(d.snapshots)[0];
       if (!same || snap.syncedAt !== prev.syncedAt || d.latest !== latest) await store.set({ snapshots: d.snapshots, latest });
     }
     renderAtt({
@@ -869,7 +889,8 @@
     const quick = `${forced?.key || ""}#${rows.map((r) => r.k + r.portal).join(",")}`;
     if (absSig && absSig !== "noctx" && quick === absQuick && Date.now() - absQuickAt < 30000 && host?.isConnected && dock?.querySelector(".panel")) return;
     const d = await store.get({ lastCourse: null, snapshots: {}, excused: {}, adjust: {}, medBeforeMse: true });
-    const ctx = forced || d.lastCourse;
+    const ctx0 = forced || d.lastCourse;
+    const ctx = ctx0 && { ...ctx0, semester: plain(ctx0.semester || "") }; // a course remembered before 1.0.1 carries the portal's "[On Roll]" label: marks would be saved under a key the attendance page never reads
     await ensureHost();
 
     if (!ctx) {
@@ -960,10 +981,12 @@
       const now = Calc.actual(snap, d.adjust[ctx.semester], exc2, { medInCourse: Plan.medInCourse(d.medBeforeMse) }); // the same numbers as the drawer
       const cb = base.courses.find((c) => c.key === ctx.key), cn = now.courses.find((c) => c.key === ctx.key);
       const p = (a, s) => Calc.percent(a, s).toFixed(2);
-      preview.replaceChildren(
+      const note = markNote(markedHrs(marksNow(d.excused[ctx.semester]?.[ctx.key]), snap.hasCc), cn.excusedHrs, snap.hasCc);
+      preview.replaceChildren(...[
         h("div", { class: "it2 main" }, h("div", { class: "row" }, h("span", {}, h("b", {}, "Overall")), h("span", { class: "big" }, `${p(base.overall.attended, base.overall.scheduled)}% → `, h("b", { class: "good" }, `${p(now.overall.attended, now.overall.scheduled)}%`)))),
-        h("div", { class: "it2 minor" }, h("div", { class: "row" }, h("span", {}, h("b", {}, "This course")), h("span", {}, `${p(cb.attended, cb.scheduled)}% → `, h("b", { class: "good" }, `${p(cn.attended, cn.scheduled)}%`))))
-      );
+        h("div", { class: "it2 minor" }, h("div", { class: "row" }, h("span", {}, h("b", {}, "This course")), h("span", {}, `${p(cb.attended, cb.scheduled)}% → `, h("b", { class: "good" }, `${p(cn.attended, cn.scheduled)}%`)))),
+        note,
+      ].filter(Boolean));
     }
 
     function toast(text, undo) {
@@ -1152,8 +1175,9 @@
     if (absMark && snap) {
       const base = Calc.effective(snap, {}, {}), now = Calc.effective(snap, absData.adjust, absData.excused);
       const bp = Calc.percent(base.overall.attended, base.overall.scheduled), np = Calc.percent(now.overall.attended, now.overall.scheduled);
+      const note = markNote(snap.courses.reduce((n, c) => n + markedHrs(absData.excused[c.code || c.name]?.rows, snap.hasCc), 0), now.courses.reduce((n, c) => n + c.excusedHrs, 0), snap.hasCc);
       preview = h("div", { class: "it2 main" }, h("div", { class: "row" }, h("span", {}, h("b", {}, "With your marks")), h("span", { class: "big" }, `${bp.toFixed(2)}% to `, h("b", { class: np > bp ? "good" : "" }, `${np.toFixed(2)}%`))),
-        h("p", { class: "sub" }, "Each mark saves straight away. Tap A to undo one. Whole day marks every hour of that day."), legendEl(true));
+        h("p", { class: "sub" }, "Each mark saves straight away. Tap A to undo one. Whole day marks every hour of that day."), legendEl(true), note);
     }
     absShell.body.replaceChildren(...[preview, absentDays(absRows, opts)].flat(Infinity).filter(Boolean));
     if (fk) absShell.drawer.querySelector(`[data-key="${fk}"]`)?.focus({ preventScroll: true });

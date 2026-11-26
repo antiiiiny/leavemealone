@@ -28,7 +28,7 @@ function load() {
     .then((d) => {
       D = d;
       d.threshold = Plan.minOf(d.threshold);
-      if (!viewSem || !d.snapshots[viewSem]) viewSem = d.latest || Object.keys(d.snapshots).sort((a, b) => UI.semRank(b) - UI.semRank(a))[0];
+      if (!viewSem || !d.snapshots[viewSem]) viewSem = d.latest || UI.semOrder(d.snapshots)[0];
       draw();
       // First popup open with data: a short guided tour (once; Settings can replay it).
       if (viewSem && !d.tour.popup && !tourRun && !tourTried) { tourTried = true; startTour(); }
@@ -210,7 +210,7 @@ function drawAll() {
   const pc = (c) => Calc.percent(c.attended, c.scheduled);
   const low = courses.filter((c) => pc(c) < thr);
   const detained = courses.filter((c) => UI.detain(pc(c)));
-  const sems = Object.keys(D.snapshots).sort((a, b) => UI.semRank(b) - UI.semRank(a));
+  const sems = UI.semOrder(D.snapshots);
   const tn = tone(op, thr);
   const toggleAcc = (id) => (v) => { v ? accOpen.add(id) : accOpen.delete(id); }; // the accordion flips itself in place (UI.acc); a redraw would skip its animation
 
