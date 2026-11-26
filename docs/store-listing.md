@@ -3,22 +3,25 @@
 ## Name
 leavemealone
 
-## Summary (132 chars max)
-Bunk calculator for CHRIST University's CUE portal: how many classes you can bunk or must attend. Unofficial.
+## Summary (132 chars max; comes from `description` in extension/manifest.json, so it changes with a new package)
+Your real CUE attendance, with co-curricular and medical hours counted, and where you stand for MSE and ESE. Unofficial.
 
 ## Description
 Unofficial. Not affiliated with CHRIST (Deemed to be University) or the ESPro / CUE portal.
 
-leavemealone reads your CUE attendance page and tells you, per course and overall, how many classes you can bunk or must attend to stay above your minimum.
+leavemealone reads your attendance on the CUE portal and shows you exactly where you stand. The portal often lags behind: co-curricular hours and medical leave can take weeks to show up. leavemealone lets you mark those hours yourself and shows your actual attendance, per course and overall.
 
-• Actual attendance: the portal's numbers plus hours you marked as co-curricular or medical
-• "Can bunk 3" / "attend next 2" for every course and the overall
-• Put a bunk: pick days on a calendar and see what it costs before you bunk
-• Plans for MSE (75% in every course) and ESE (85% overall)
-• Mark absent hours, one at a time or a whole day at once
-• Toolbar popup with exam countdowns and the best days to bunk
-• Optional daily alert when a course gets low
+• Actual attendance: the portal's numbers plus the hours you mark as co-curricular or medical
+• Medical leave counted the way the university's policy says (74.5% to 85% overall)
+• Where you stand for MSE (75% in every course) and ESE (85% overall), with countdowns
+• Mark absent hours one at a time, or a whole day at once
+• Flags hours the portal has since updated, so nothing is counted twice
+• Plan ahead: see how a day off would change each course before you take it
+• Toolbar popup with your numbers and the next holidays
+• Optional daily alert when a course gets close to the line
 • Separate profiles if friends log in on the same browser
+
+We don't promote bunking. Just accurate attendance.
 
 Private by design: everything stays in your browser. No account, no analytics, nothing is sent anywhere.
 
@@ -29,7 +32,7 @@ Developed by Alicia & Antony Co.
 Productivity (or Education)
 
 ## Single purpose
-Shows CUE portal users how many classes they can miss or must attend to meet attendance requirements, from the attendance data on the portal pages they open.
+Shows CUE portal users their actual attendance (including co-curricular and medical hours the portal hasn't added yet) and where they stand against the university's attendance requirements, from the portal pages they open.
 
 ## Permission justifications
 - storage: saves the attendance numbers, marks, timetable and settings locally in the browser so the popup and alerts work without reopening the portal.

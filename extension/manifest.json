@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "leavemealone",
   "version": "1.0.2",
-  "description": "Bunk calculator and low-attendance alerts for the CUE student portal. Unofficial; not affiliated with CHRIST University.",
+  "description": "Your real CUE attendance, with co-curricular and medical hours counted, and where you stand for MSE and ESE. Unofficial.",
   "permissions": [
     "storage",
     "alarms",
