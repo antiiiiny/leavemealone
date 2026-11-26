@@ -299,8 +299,10 @@
         h("select", { "aria-label": "Sort courses", "data-key": "sort", onchange: (e) => { A.sortBy = e.target.value; store.set({ sortBy: A.sortBy }); rerender(); } },
           SORTS.map((s) => h("option", { value: s.v, selected: s.v === A.sortBy }, s.label)))));
 
+    const vi = UI.vibeIndex(courses, (c) => Calc.percent(c.attended, c.scheduled), threshold); // words alternate in the portal's order, whatever the sort
     const list = sortCourses(courses, A.sortBy).map((c) => {
       const pct = Calc.percent(c.attended, c.scheduled);
+      const vibe = UI.vibeTag(pct, threshold, vi.get(c.key));
       const adjusted = !!(c.adj.att || c.adj.sch || c.excusedHrs);
       const skip = Calc.canSkip(c.attended, c.scheduled, t);
       const tip = adjusted ? `Includes your own changes. Portal ${c.portalAttended}/${c.portalScheduled}, with your marks ${fmt(c.attended)}/${c.scheduled}` : "";
@@ -310,7 +312,7 @@
           onkeydown: (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(); } } },
         h("div", { class: "row" },
           h("span", {}, h("b", { class: "nm", title: c.name }, c.name || c.code),
-            c.code || adjusted || UI.vibeTag(pct, threshold) ? h("div", { class: "cl" }, c.code ? h("span", { class: "sub" }, c.code) : null, UI.vibeTag(pct, threshold), adjusted ? chip("mute", "adj", tip) : null) : null),
+            c.code || adjusted || vibe ? h("div", { class: "cl" }, c.code ? h("span", { class: "sub" }, c.code) : null, vibe, adjusted ? chip("mute", "adj", tip) : null) : null),
           h("span", { class: "pc" }, h("span", { class: "p", style: `color:var(--${tone(pct, threshold)})` }, `${pct.toFixed(0)}%`),
             pct < threshold ? chip("bad", mustText(Calc.mustAttend(c.attended, c.scheduled, t))) : chip(skip ? "good" : "warn", skip ? `can bunk ${skip}` : "no bunks left"))),
         h("div", { class: "cbar" }, bar(pct, threshold), ico("chev", "ic chev")),
@@ -585,7 +587,8 @@
 
     pill.className = `pill ${tone(op, threshold)}${pill.classList.contains("clicked") ? " clicked" : ""}`;
     pill.setAttribute("aria-expanded", String(A.open));
-    pill.replaceChildren(...[h("i"), `${op.toFixed(2)}%`, UI.detain(op) ? h("span", { class: "sub vibe bad" }, "pakka detain") : lowN ? h("span", { class: "sub" }, `${lowN} low`) : UI.susegad(op, threshold) ? h("span", { class: "sub vibe good" }, "susegad") : null].filter(Boolean)); // a null child would print "null"
+    const tag = UI.vibeTag(op, threshold); tag.classList.add("sub");
+    pill.replaceChildren(h("i"), `${op.toFixed(2)}%`, UI.detain(op) ? tag : lowN ? h("span", { class: "sub" }, `${lowN} low`) : tag); // overall low: say so; else "N low" if some course is; else the overall's tag
     sub.replaceChildren(snap.semester, sep(), `minimum ${threshold}%`);
     for (const [id, btn] of tabs) {
       btn.classList.toggle("on", tab === id);

@@ -22,16 +22,30 @@ const UI = (() => {
   // Below 75% the university detains you, whatever minimum you set in the extension.
   const DETAIN = 75; // = Calc.DETAIN (ui.js also loads alone on the welcome page, where Calc isn't there)
   const detain = (pct) => pct < DETAIN;
-  // 85% and up: the ESE overall bar is cleared, nothing to worry about. Susegad (Goan: laid-back, relaxed).
+  // The slang tags have four tiers on fixed lines (not your minimum), each with two words that alternate between courses:
+  // low (< 75%, red), tight (75% to < 80%, orange), steady (80% to < 85%, yellow), relaxed (85% and up, green: susegad is Goan for laid-back).
+  const STEADY = 80;
   const SUSEGAD = 85; // = Calc.ESE
-  const susegad = (pct, thr = 0) => pct >= SUSEGAD && pct >= thr; // never beside "below your minimum": with a 90% minimum, 87% is not relaxed
-  // The tag next to a course: "pakka detain" below 75%, "susegad" at 85% or more, nothing in between.
+  const TIERS = {
+    low: { cls: "bad", words: ["pakka detain", "kashtam"], title: () => `Below ${DETAIN}%: not allowed to write the exams unless it comes back up` },
+    tight: { cls: "tight", words: ["scene tight", "eda mone"], title: () => `${DETAIN}% to ${STEADY}%: above the line, but close` },
+    steady: { cls: "steady", words: ["chalta hai", "mastundhi"], title: () => `${STEADY}% to ${SUSEGAD}%: comfortable` },
+    relaxed: { cls: "good", words: ["susegad", "bindaas"], title: () => `${SUSEGAD}% or more: relax` },
+  };
+  // Never "relaxed" or "steady" beside "below your minimum": under your own minimum (thr) the best a tag can say is tight.
+  const tierOf = (pct, thr = 0) => (pct < DETAIN ? "low" : pct >= SUSEGAD && pct >= thr ? "relaxed" : pct >= STEADY && pct >= thr ? "steady" : "tight");
+  // Which of a tier's two words each item gets: the 1st, 3rd... item in a tier gets the first word, the 2nd, 4th... the second.
+  // list in a stable order (the portal's), so sorting the list doesn't swap the words. -> Map(item.key -> n)
+  const vibeIndex = (list, pctOf, thr) => {
+    const seen = {}, out = new Map();
+    for (const x of list) { const t = tierOf(pctOf(x), thr); seen[t] = (seen[t] ?? -1) + 1; out.set(x.key, seen[t]); }
+    return out;
+  };
+  // The tag next to a course or the overall number (n = its place in its tier, 0 for the overall).
   // Styled as a quiet italic aside (.vibe), never as a chip: the can-bunk / attend chip stays the loudest thing.
-  const vibeTag = (pct, thr) => detain(pct)
-    ? h("span", { class: "vibe bad", title: `Below ${DETAIN}%: not allowed to write the exams unless it comes back up` }, "pakka detain")
-    : susegad(pct, thr) ? h("span", { class: "vibe good", title: `${SUSEGAD}% or more: relax` }, "susegad") : null;
-  // The same aside as a lead-in for a headline ("pakka detain · ..."), or null. The real message stays the main text.
-  const vibeLead = (pct, thr) => { const t = vibeTag(pct, thr); return t ? [t, " "] : null; };
+  const vibeTag = (pct, thr, n = 0) => { const t = TIERS[tierOf(pct, thr)]; return h("span", { class: `vibe ${t.cls}`, title: t.title() }, t.words[(n || 0) % 2]); };
+  // The same aside as a lead-in for a headline ("pakka detain · ..."). The real message stays the main text.
+  const vibeLead = (pct, thr) => [vibeTag(pct, thr), " "];
   // Below the official ESE overall the user can still choose their own target, but it is flagged in red.
   const eseFlag = (pct, official) => (pct < official ? h("div", { class: "sub bad eseflag", role: "status" }, "fine you will pay uh?") : null);
   const tone = (pct, thr) => (pct < thr ? "bad" : pct < thr + 10 ? "warn" : "good");
@@ -357,5 +371,5 @@ const UI = (() => {
     return { refresh: place, end: () => end(false), get active() { return live; } };
   };
 
-  return { h, diag, eseFlag, semRank, DETAIN, detain, SUSEGAD, susegad, vibeTag, vibeLead, tour, absentSummary, absentDays, daySeg, hrsOf, plural, fmt, tone, dayLabel, niceDate, nicePeriod, startTime, ico, sep, chip, bar, TAGLINE, mustText, breakTag, ABOUT, placeThumb, tween, pills, stepper, toggle, acc };
+  return { h, diag, eseFlag, semRank, DETAIN, detain, STEADY, SUSEGAD, vibeIndex, vibeTag, vibeLead, tour, absentSummary, absentDays, daySeg, hrsOf, plural, fmt, tone, dayLabel, niceDate, nicePeriod, startTime, ico, sep, chip, bar, TAGLINE, mustText, breakTag, ABOUT, placeThumb, tween, pills, stepper, toggle, acc };
 })();

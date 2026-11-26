@@ -9,7 +9,7 @@
   /* colour */
   --bg: #0B1020; --card: #131B32; --card2: #1D2745; --ink: #EEE9DD; --mute: #98A2BA; --line: #1F2946;
   --pick: #D9B96E; --onpick: #1E1608; /* gold is the one accent: selection, ticks, switches, your marks */
-  --good: #6FBF9A; --warn: #D9A257; --bad: #E67872;
+  --good: #6FBF9A; --warn: #D9A257; --bad: #E67872; --steady: #D6D06A; /* yellow, only for the "steady" slang tag (between orange and green) */
   --ink-hi: #F6F2E8; --ongold: #1E1608; --black: #000; --bg-deep: #070B17; --on-bad: #2A0A08; --on-blue: #0B1020; --on-good: #06281A; --on-light: #111;
   --gold-bg: rgba(217,185,110,.16); --gold-wash: rgba(217,185,110,.07); --gold-line: rgba(217,185,110,.5); --good-bg: rgba(111,191,154,.16);
   --hol: #98A2BA; --holbg: #1D2745; --gold: #D9B96E; --blue: #98A2BA; /* holiday and medical are neutral on purpose */
@@ -156,6 +156,8 @@ svg.ic { width: 16px; height: 16px; flex: none; }
 .vibe { font: italic 600 var(--t13)/1.4 var(--font-body); letter-spacing: .01em; white-space: nowrap; }
 .vibe.bad { color: color-mix(in srgb, var(--bad) 88%, var(--ink)); text-decoration: underline wavy color-mix(in srgb, var(--bad) 70%, transparent); text-decoration-thickness: 1.5px; text-underline-offset: 4px; } /* a teacher's red-pen squiggle */
 .vibe.good { color: color-mix(in srgb, var(--good) 90%, var(--ink)); display: inline-block; transform: rotate(-3deg); } /* leaning back, relaxed */
+.vibe.tight { color: color-mix(in srgb, var(--warn) 90%, var(--ink)); }
+.vibe.steady { color: color-mix(in srgb, var(--steady) 92%, var(--ink)); }
 .pill .vibe.bad { text-decoration: none; }
 .cl .vibe { margin-left: 8px; }
 .cl .vibe:first-child { margin-left: 0; }
