@@ -196,13 +196,12 @@
     const now = new Date(), nowMin = now.getHours() * 60 + now.getMinutes(), t0 = today0();
     let date = Plan.upcomingFrom(A.tt, now), cls = [];
     for (let i = 0; i < 30; i++, date = Cal.addDays(date, 1)) {
-      cls = Plan.classesOn(date, A.tt).filter((x) => +date !== +t0 || !(Plan.endMinutes(x.time) <= nowMin));
+      cls = Plan.sortedClassesOn(date, A.tt).filter((x) => +date !== +t0 || !(Plan.endMinutes(x.time) <= nowMin));
       if (cls.length) break;
     }
     if (!cls.length) return null;
     const dkey = Cal.key(date);
     if (todayFor !== dkey) { todayFor = dkey; todayPick = new Set(); }
-    cls = [...cls].sort((a, b) => Plan.periodNum(a.period) - Plan.periodNum(b.period));
     const ofName = Plan.courseOf(eff.courses), courseOf = (x) => ofName(x.name);
     const impactOf = (list) => { const m = {}; for (const x of list) { const c = courseOf(x); if (c) m[c.key] = (m[c.key] || 0) + 1; } return Plan.impact(eff, m, "now", {}, t); };
     const okAlone = (x) => { const c = courseOf(x); if (!c) return null; const r = impactOf([x]).rows[0]; return !r || r.safe; };
@@ -274,7 +273,7 @@
     const hero = h("div", { class: `hero w-${tn}` },
       h("div", { class: "row" }, heroNum, h("span", { class: "sub" }, `${fmt(o.attended)} / ${o.scheduled}h`)),
       bar(op, threshold),
-      h("p", { class: "sub" }, UI.vibeLead(op), op >= threshold ? h("b", {}, `${(op - threshold).toFixed(2)} points above`) : h("b", {}, `${(threshold - op).toFixed(2)} points below`), ` your ${threshold}% minimum`),
+      h("p", { class: "sub" }, UI.vibeLead(op, threshold), op >= threshold ? h("b", {}, `${(op - threshold).toFixed(2)} points above`) : h("b", {}, `${(threshold - op).toFixed(2)} points below`), ` your ${threshold}% minimum`),
       h("p", { class: "sub" }, op < threshold ? (Number.isFinite(Calc.mustAttend(o.attended, o.scheduled, t)) ? `Attend the next ${plural(Calc.mustAttend(o.attended, o.scheduled, t), "class")} to get back to ${threshold}%` : `${threshold}% is out of reach now: a missed class stays missed`)
         : Calc.canSkip(o.attended, o.scheduled, t) ? `You can bunk ${plural(Calc.canSkip(o.attended, o.scheduled, t), "class")} and stay above it` : "No bunks left: one more would put you below it"),
       Math.abs(added) > 1e-9 ? h("p", { class: "sub" }, `Includes ${fmt(Math.abs(added))}h you added. The portal shows ${pp.toFixed(2)}%.`) : null,
@@ -305,7 +304,7 @@
           onkeydown: (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(); } } },
         h("div", { class: "row" },
           h("span", {}, h("b", { class: "nm", title: c.name }, c.name || c.code),
-            c.code || adjusted || UI.vibeTag(pct) ? h("div", { class: "cl" }, c.code ? h("span", { class: "sub" }, c.code) : null, UI.vibeTag(pct), adjusted ? chip("mute", "adj", tip) : null) : null),
+            c.code || adjusted || UI.vibeTag(pct, threshold) ? h("div", { class: "cl" }, c.code ? h("span", { class: "sub" }, c.code) : null, UI.vibeTag(pct, threshold), adjusted ? chip("mute", "adj", tip) : null) : null),
           h("span", { class: "pc" }, h("span", { class: "p", style: `color:var(--${tone(pct, threshold)})` }, `${pct.toFixed(0)}%`),
             pct < threshold ? chip("bad", mustText(Calc.mustAttend(c.attended, c.scheduled, t))) : chip(skip ? "good" : "warn", skip ? `can bunk ${skip}` : "no bunks left"))),
         h("div", { class: "cbar" }, bar(pct, threshold), ico("chev", "ic chev")),
@@ -580,7 +579,7 @@
 
     pill.className = `pill ${tone(op, threshold)}${pill.classList.contains("clicked") ? " clicked" : ""}`;
     pill.setAttribute("aria-expanded", String(A.open));
-    pill.replaceChildren(...[h("i"), `${op.toFixed(2)}%`, UI.detain(op) ? h("span", { class: "sub vibe bad" }, "pakka detain") : lowN ? h("span", { class: "sub" }, `${lowN} low`) : UI.susegad(op) ? h("span", { class: "sub vibe good" }, "susegad") : null].filter(Boolean)); // a null child would print "null"
+    pill.replaceChildren(...[h("i"), `${op.toFixed(2)}%`, UI.detain(op) ? h("span", { class: "sub vibe bad" }, "pakka detain") : lowN ? h("span", { class: "sub" }, `${lowN} low`) : UI.susegad(op, threshold) ? h("span", { class: "sub vibe good" }, "susegad") : null].filter(Boolean)); // a null child would print "null"
     sub.replaceChildren(snap.semester, sep(), `minimum ${threshold}%`);
     for (const [id, btn] of tabs) {
       btn.classList.toggle("on", tab === id);

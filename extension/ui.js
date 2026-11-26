@@ -23,14 +23,14 @@ const UI = (() => {
   const detain = (pct) => pct < DETAIN;
   // 85% and up: the ESE overall bar is cleared, nothing to worry about. Susegad (Goan: laid-back, relaxed).
   const SUSEGAD = 85;
-  const susegad = (pct) => pct >= SUSEGAD;
+  const susegad = (pct, thr = 0) => pct >= SUSEGAD && pct >= thr; // never beside "below your minimum": with a 90% minimum, 87% is not relaxed
   // The tag next to a course: "pakka detain" below 75%, "susegad" at 85% or more, nothing in between.
   // Styled as a quiet italic aside (.vibe), never as a chip: the can-bunk / attend chip stays the loudest thing.
-  const vibeTag = (pct) => detain(pct)
+  const vibeTag = (pct, thr) => detain(pct)
     ? h("span", { class: "vibe bad", title: `Below ${DETAIN}%: not allowed to write the exams unless it comes back up` }, "pakka detain")
-    : susegad(pct) ? h("span", { class: "vibe good", title: `${SUSEGAD}% or more: relax` }, "susegad") : null;
+    : susegad(pct, thr) ? h("span", { class: "vibe good", title: `${SUSEGAD}% or more: relax` }, "susegad") : null;
   // The same aside as a lead-in for a headline ("pakka detain · ..."), or null. The real message stays the main text.
-  const vibeLead = (pct) => { const t = vibeTag(pct); return t ? [t, " "] : null; };
+  const vibeLead = (pct, thr) => { const t = vibeTag(pct, thr); return t ? [t, " "] : null; };
   // Below the official ESE overall the user can still choose their own target, but it is flagged in red.
   const eseFlag = (pct, official) => (pct < official ? h("div", { class: "sub bad eseflag", role: "status" }, "fine you will pay uh?") : null);
   const tone = (pct, thr) => (pct < thr ? "bad" : pct < thr + 10 ? "warn" : "good");
@@ -137,11 +137,11 @@ const UI = (() => {
     requestAnimationFrame(step);
   };
 
-  // Segmented control: opts = [[value, label], ...]. Used for tabs ("tab") and "Safe means".
-  const pills = (opts, value, onpick, { label, role, keyPrefix } = {}) => {
-    const box = h("div", { class: "pills", role: role === "tab" ? "tablist" : "group", "aria-label": label },
+  // Segmented control: opts = [[value, label], ...]. Used for "Safe means" (the drawer's tabs are built by hand in content.js).
+  const pills = (opts, value, onpick, { label, keyPrefix } = {}) => {
+    const box = h("div", { class: "pills", role: "group", "aria-label": label },
       opts.map(([v, text]) =>
-        h("button", { class: v === value ? "on" : "", role: role === "tab" ? "tab" : null, "aria-selected": role === "tab" ? String(v === value) : null, "aria-pressed": role === "tab" ? null : String(v === value), "data-key": keyPrefix ? `${keyPrefix}-${v}` : null, onclick: () => v !== value && onpick(v) }, text)));
+        h("button", { class: v === value ? "on" : "", "aria-pressed": String(v === value), "data-key": keyPrefix ? `${keyPrefix}-${v}` : null, onclick: () => v !== value && onpick(v) }, text)));
     requestAnimationFrame(() => placeThumb(box, keyPrefix || label)); // after it is in the page
     return box;
   };
