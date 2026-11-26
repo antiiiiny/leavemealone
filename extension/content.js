@@ -299,10 +299,9 @@
         h("select", { "aria-label": "Sort courses", "data-key": "sort", onchange: (e) => { A.sortBy = e.target.value; store.set({ sortBy: A.sortBy }); rerender(); } },
           SORTS.map((s) => h("option", { value: s.v, selected: s.v === A.sortBy }, s.label)))));
 
-    const vi = UI.vibeIndex(courses, (c) => Calc.percent(c.attended, c.scheduled), threshold); // words alternate in the portal's order, whatever the sort
     const list = sortCourses(courses, A.sortBy).map((c) => {
       const pct = Calc.percent(c.attended, c.scheduled);
-      const vibe = UI.vibeTag(pct, threshold, vi.get(c.key));
+      const vibe = UI.vibeTag(pct, threshold);
       const adjusted = !!(c.adj.att || c.adj.sch || c.excusedHrs);
       const skip = Calc.canSkip(c.attended, c.scheduled, t);
       const tip = adjusted ? `Includes your own changes. Portal ${c.portalAttended}/${c.portalScheduled}, with your marks ${fmt(c.attended)}/${c.scheduled}` : "";

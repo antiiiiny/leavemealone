@@ -9,7 +9,6 @@ const ago = (t) => {
 const STALE_DAYS = Calc.STALE_DAYS; // the daily alert uses the same limit (background.js)
 const WELCOME = chrome.runtime.getURL("welcome.html");
 let D = null;        // storage
-let vibeIdx = new Map(); // course key -> its place in its slang tier (see UI.vibeIndex)
 let viewSem = null;  // semester shown (defaults to the highest one)
 let skip = 0;        // what-if: classes skipped
 let wi = null;       // what-if result from the timetable (null without one)
@@ -209,7 +208,6 @@ function drawAll() {
   const op = Calc.percent(o.attended, o.scheduled);
   const courses = eff.courses.filter((c) => c.scheduled > 0); // portal order, on purpose
   const pc = (c) => Calc.percent(c.attended, c.scheduled);
-  vibeIdx = UI.vibeIndex(courses, pc, thr); // which of a tier's two slang words each course gets (same in every list below)
   const low = courses.filter((c) => pc(c) < thr);
   const detained = courses.filter((c) => UI.detain(pc(c)));
   const sems = Object.keys(D.snapshots).sort((a, b) => UI.semRank(b) - UI.semRank(a));
@@ -396,7 +394,7 @@ function drawAll() {
         setRow("ESE target %", [UI.eseFlag(Plan.eseOf(D.eseTarget), Plan.ESE_OVERALL), `Overall % to sit end-sem exams. Official ${Plan.ESE_OVERALL}%, you can set ${Plan.ESE_MIN}% to 100%. `,
           D.eseTarget != null && D.eseTarget !== Plan.ESE_OVERALL ? h("button", { class: "link", onclick: () => chrome.storage.local.remove("eseTarget").then(load) }, `Reset to ${Plan.ESE_OVERALL}%`) : null],
           stepper(Plan.eseOf(D.eseTarget), { min: Plan.ESE_MIN, max: 100, decimals: 1, label: "ESE target", key: "set-ese", onchange: (v) => save({ eseTarget: v }) })), // saved on blur/Enter or +/-: typing "8" on the way to "85" must not save 8
-        h("div", { class: "sub setnote" }, `MSE always needs ${Math.round(Plan.MSE_MIN * 100)}% in every course. The slang tags follow fixed lines too: below ${UI.DETAIN}% pakka detain or kashtam, then scene tight or eda mone, from ${UI.STEADY}% chalta hai or mastundhi, from ${UI.SUSEGAD}% susegad or bindaas.`)),
+        h("div", { class: "sub setnote" }, `MSE always needs ${Math.round(Plan.MSE_MIN * 100)}% in every course. The slang tags follow fixed lines too: below ${UI.DETAIN}% pakka detain, then eda mone, from ${UI.STEADY}% mastundhi, from ${UI.SUSEGAD}% susegad.`)),
       group("Counting",
         setRow("Medical per course until MSE", "Marked medical hours count in their own course until MSE, then only in the overall (74.5% to 84.49%)",
           toggle(D.medBeforeMse !== false, (v) => save({ medBeforeMse: v }), "Medical per course until MSE", "set-med"))),
@@ -425,7 +423,7 @@ function drawAll() {
 
 function courseRow(c, thr, t, showAfter) {
   const pct = Calc.percent(c.attended, c.scheduled);
-  const vibe = UI.vibeTag(pct, thr, vibeIdx.get(c.key));
+  const vibe = UI.vibeTag(pct, thr);
   const skipN = Calc.canSkip(c.attended, c.scheduled, t);
   const adjusted = !!(c.adj.att || c.adj.sch || c.excusedHrs);
   const tip = adjusted ? `Includes your own changes. Portal ${c.portalAttended}/${c.portalScheduled}, with your marks ${fmt(c.attended)}/${c.scheduled}` : "";
