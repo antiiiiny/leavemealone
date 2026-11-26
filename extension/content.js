@@ -1050,7 +1050,7 @@
                 else delete cur.excused[ctx.semester][ctx.key];
                 await store.set({ excused: cur.excused });
                 absSig = "";
-                tickAbs();
+                tickAbs(forced); // keep the course picked in the /main/absence filter (without it this resolves to lastCourse: the wrong course)
               } }, "Confirm present")
             );
           })
