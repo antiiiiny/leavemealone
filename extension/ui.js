@@ -9,6 +9,7 @@ const UI = (() => {
       else if (k === "class") el.className = v;
       else if (v !== false && v != null) el.setAttribute(k, v === true ? "" : v);
     }
+    if (/(^| )h3( |$)/.test(el.className)) { el.setAttribute("role", "heading"); el.setAttribute("aria-level", "3"); } // section titles are headings for screen readers
     el.append(...kids.flat(Infinity).filter((x) => x != null && x !== false));
     return el;
   };

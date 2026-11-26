@@ -591,6 +591,7 @@
       btn.classList.toggle("on", tab === id);
       btn.setAttribute("aria-selected", String(tab === id));
     }
+    body.setAttribute("aria-labelledby", `cue-tab-${tab}`); // the panel is named by the tab that is showing
     drawer.classList.toggle("open", A.open);
     body.classList.toggle("grow", growBars && A.open);
     if (A.open) growBars = false;
@@ -653,13 +654,13 @@
     const sub = h("div", { class: "sub" });
     const tabs = new Map();
     for (const [id, label] of [["overview", "Overview"], ["plan", "Put a bunk"]]) {
-      tabs.set(id, h("button", { role: "tab", "data-key": `tab-${id}`, onclick: () => { tab = id; growBars = true; calShown = null; rerender(); } }, label));
+      tabs.set(id, h("button", { role: "tab", id: `cue-tab-${id}`, "aria-controls": "cue-panel", "data-key": `tab-${id}`, onclick: () => { tab = id; growBars = true; calShown = null; rerender(); } }, label));
     }
     const tabsBox = h("div", { class: "pills", role: "tablist" }, ...tabs.values());
-    const body = h("div", { class: "dbody" });
+    const body = h("div", { class: "dbody", role: "tabpanel", id: "cue-panel" });
     const drawer = h("div", { class: "drawer", role: "dialog", "aria-label": "Attendance details" },
       h("div", { class: "top" },
-        h("div", {}, h("b", {}, "Attendance"), sub),
+        h("div", {}, h("b", { role: "heading", "aria-level": "2" }, "Attendance"), sub),
         h("button", { class: "xb", "aria-label": "Close", "data-key": "close", onclick: () => setOpen(false) }, ico("close"))),
       tabsBox,
       body,
@@ -1192,7 +1193,7 @@
       // A real on/off switch: the label and track change colour when marking is on.
       const markBtn = h("button", { class: "mkt", role: "switch", "aria-checked": "false", "data-key": "mark-toggle", onclick: () => { absMark = !absMark; drawAbsBody(); } }, h("span", {}, "Mark hours"), h("span", { class: "trk" }));
       const drawer = h("div", { class: "drawer", role: "dialog", "aria-label": "Absent hours" },
-        h("div", { class: "top" }, h("div", {}, h("b", {}, "Absent hours"), sub), h("span", { class: "topa" }, markBtn, h("button", { class: "xb", "aria-label": "Close", onclick: () => setAbsOpen(false) }, ico("close")))),
+        h("div", { class: "top" }, h("div", {}, h("b", { role: "heading", "aria-level": "2" }, "Absent hours"), sub), h("span", { class: "topa" }, markBtn, h("button", { class: "xb", "aria-label": "Close", onclick: () => setAbsOpen(false) }, ico("close")))),
         body, h("div", { class: "tagline" }, UI.TAGLINE));
       dock.replaceChildren(drawer, pill);
       absShell = { pill, sub, body, drawer, markBtn };
