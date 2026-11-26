@@ -15,22 +15,26 @@
      Bundled: no network requests; links open in new tabs. Filled in by welcome.js from UI.ABOUT (ui.js). -->
 <body>
   <div class="cue page">
+    <a class="skip" href="#start">Skip to content</a>
     <header class="w-top">
       <span class="brand"><img src="icons/icon-32.png" width="22" height="22" alt=""> leavemealone <small data-ver></small></span>
-      <a class="link" data-repo href="#">GitHub</a>
+      <a class="link mute" data-repo href="#">GitHub</a>
     </header>
 
+    <main class="page-main">
     <!-- 1. Hello + how to start, beside a looping demo (invented numbers, never a real student's) -->
     <section class="hello panel-card" id="start">
       <div class="hello-text">
         <p class="kicker">Installed. Nice.</p>
         <h1>Your bunk maths, sorted.</h1>
+        <p class="lede">leavemealone reads your attendance portal and shows you exactly where you stand.</p>
         <ol class="steps">
-          <li><i>1</i><span>Open <b>Attendance</b> on CUE, in table view.</span></li>
-          <li><i>2</i><span>Click the small pill at the bottom right.</span></li>
-          <li><i>3</i><span>Follow the short tour. It grabs your timetable once.</span></li>
+          <li><span>Open <b>Attendance</b> on CUE.</span></li>
+          <li><span>Click the small pill at the bottom right.</span></li>
+          <li><span>Tap through the tour, then let it open your <b>Timetable</b> once.</span></li>
         </ol>
-        <a class="btn gold" href="https://cue.christuniversity.in/main/attendence">Open CUE attendance</a>
+        <a class="btn gold" data-out href="https://cue.christuniversity.in/main/attendence">Open CUE attendance</a>
+        <p class="proof">100+ students in the first 2 days. Free, and nothing leaves your browser.</p>
       </div>
 
       <figure class="demo" data-demo aria-label="Demo: marking a day you were at a college event as co-curricular raises your overall from 74.12% to 76.47%">
@@ -39,18 +43,9 @@
           <div class="v" data-d-num>74.12%</div>
           <div class="bar"><i data-d-fill></i><u style="left:75%"></u></div>
           <p class="sub" data-d-line>63 of 85 hours</p>
+          <p class="sub" data-d-vibe></p>
         </div>
-        <div class="demo-day" aria-hidden="true">
-          <div class="row">
-            <div class="dbadge"><small>Mon</small><b>17</b></div>
-            <div class="hx"><b>College fest</b><span class="sub">2 hours absent</span></div>
-            <div class="seg"><button class="a on" tabindex="-1">A</button><button class="c" tabindex="-1" data-d-c>C</button><button class="m" tabindex="-1">M</button><button class="l" tabindex="-1">L</button></div>
-          </div>
-          <ul>
-            <li><span>Hour 3 · Computer Networks</span><span class="chip mute" data-d-tag>absent</span></li>
-            <li><span>Hour 4 · Data Structures</span><span class="chip mute" data-d-tag>absent</span></li>
-          </ul>
-        </div>
+        <div class="demo-day" data-d-days aria-hidden="true" inert></div>
         <svg class="cursor" data-d-cursor viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3l14 8-6 1.6L10 19z"/></svg>
         <figcaption class="sub">Mark the day you were at an event as <b>C</b>, co-curricular. The number updates on the spot.</figcaption>
       </figure>
@@ -59,56 +54,78 @@
     <!-- 2. Chip in: UPI and GitHub side by side -->
     <section class="grid" id="chip">
       <article class="panel-card pay" data-pay hidden>
-        <div>
-          <p class="kicker">Support</p>
-          <h2>Chip in</h2>
-          <p>Free, made by two students. If it saved your attendance, a chai's worth keeps it going.</p>
-          <div class="upi"><code data-upi></code><button class="btn sm" type="button" data-copy>Copy</button></div>
+        <p class="kicker">Support</p>
+        <h2>Chip in</h2>
+        <p>Free, made by two students. A chai keeps it going.</p>
+        <div class="card-act pay-row">
+          <button class="qr-thumb" type="button" data-qr-open aria-label="Show the UPI QR code larger">
+            <img src="support-qr.png" width="56" height="56" alt="">
+          </button>
+          <div class="upi-col">
+            <div class="upi"><code data-upi></code><button class="btn sm" type="button" data-copy>Copy</button></div>
+            <span class="sub">Scan the code, or copy the UPI ID</span>
+          </div>
         </div>
-        <button class="qr-thumb" type="button" data-qr-open aria-label="Show the UPI QR code larger">
-          <img src="support-qr.png" width="96" height="96" alt="">
-          <span>Tap to scan</span>
-        </button>
       </article>
       <article class="panel-card">
         <p class="kicker">Open source</p>
         <h2>Build it with us</h2>
         <p>It's open source. A star, an idea or a fix counts as much as money.</p>
-        <div class="w-actions">
-          <a class="btn" data-repo href="#">Star on GitHub</a>
-          <a class="link" data-contrib href="#">How to contribute</a>
+        <div class="card-act w-actions">
+          <a class="btn" data-repo data-out href="#">Star on GitHub</a>
+          <a class="link" data-contrib data-out href="#">How to contribute</a>
         </div>
       </article>
     </section>
 
-    <!-- 3. Report: opens a pre-filled GitHub issue; the extension itself sends nothing -->
-    <section class="panel-card" id="report">
-      <p class="kicker">Feedback</p>
-      <h2>Something off?</h2>
-      <p>Tell us here and GitHub opens with it written out. Sign in and press Submit. Skip your name and real numbers.</p>
+    <!-- 3. Report: one landscape card. "Continue on GitHub" is the only thing that opens GitHub; the person submits it there (the extension sends nothing) -->
+    <section class="report" id="report" aria-labelledby="report-h">
+      <div class="report-head">
+        <p class="kicker">Feedback</p>
+        <h2 id="report-h">Something off?</h2>
+        <p>Tell us here and GitHub opens with it written out. Add a line, press Submit, and it reaches us. Skip your name and real numbers.</p>
+      </div>
       <form class="form" data-report novalidate>
-        <label>Type
-          <select name="kind"><option>Bug</option><option>Feature idea</option><option>Wrong number</option></select>
-        </label>
-        <label>Where
-          <select name="where">
-            <option>Attendance page</option><option>Absent details</option><option>Put a bunk</option>
-            <option>Toolbar popup</option><option>Timetable</option><option>Somewhere else</option>
-          </select>
-        </label>
-        <label class="full">Title
+        <div class="form-row">
+          <div class="field">
+            <span class="lbl" id="kind-l">Type</span>
+            <div class="types" role="radiogroup" aria-labelledby="kind-l">
+              <label><input type="radio" name="kind" value="Bug" checked><span>Bug</span></label>
+              <label><input type="radio" name="kind" value="Wrong number"><span>Wrong number</span></label>
+              <label><input type="radio" name="kind" value="Feature idea"><span>Idea</span></label>
+            </div>
+          </div>
+          <label class="field">Where
+            <select name="where">
+              <option>Attendance page</option><option>Absent details</option><option>Put a bunk</option>
+              <option>Toolbar popup</option><option>Timetable</option><option>Somewhere else</option>
+            </select>
+          </label>
+        </div>
+        <label class="field">Title
           <input name="title" required maxlength="120" placeholder="Pill shows 0% after switching semester">
           <span class="err" data-err hidden>Add a short title.</span>
         </label>
-        <label class="full">What happened?
+        <label class="field">What happened?
           <textarea name="details" rows="3" placeholder="What you did, what you saw, what you expected"></textarea>
         </label>
-        <label class="full chk"><input type="checkbox" name="tech" checked> Add technical details (version, which view was read, counts; no names, hours or percentages)</label>
-        <div class="full"><button class="btn gold" type="submit">Continue on GitHub</button></div>
+        <div class="form-go">
+          <label class="swrow"><input type="checkbox" name="tech" role="switch" checked><span class="trk" aria-hidden="true"></span><span class="swt"><b>Attach technical details</b><small>Version, which view was read, counts. Never names, hours or percentages.</small></span></label>
+          <div class="go"><button class="btn gold" data-out type="submit">Continue on GitHub</button><p class="sub" role="status" data-status></p></div>
+        </div>
       </form>
     </section>
 
-    <footer class="foot"><span data-na></span> Made by <span data-by></span> · <a class="link" data-privacy href="#">Privacy</a></footer>
+    </main>
+
+    <footer class="foot">
+      <p class="stance">We don't promote bunking. Just accurate attendance.</p>
+      <div class="foot-meta">
+        <p class="credit">Developed by <span data-by></span></p>
+        <p class="legal" data-na></p>
+        <a class="link" data-privacy href="#">Privacy</a>
+      </div>
+    </footer>
   </div>
 
   <!-- The QR, centre stage -->

@@ -33,16 +33,44 @@ const UI = (() => {
   const STEADY = 80;
   const SUSEGAD = 85; // = Calc.ESE
   const TIERS = {
-    low: { cls: "bad", word: "pakka detain", title: () => `Below ${DETAIN}%: not allowed to write the exams unless it comes back up` },
-    tight: { cls: "tight", word: "eda mone", title: () => `${DETAIN}% to ${STEADY}%: above the line, but close` },
-    steady: { cls: "steady", word: "mastundhi", title: () => `${STEADY}% to ${SUSEGAD}%: comfortable` },
-    relaxed: { cls: "good", word: "susegad", title: () => `${SUSEGAD}% or more: relax` },
+    low: { cls: "bad", word: "pakka detain", tip: () => `Below ${DETAIN}%: detention territory` },
+    tight: { cls: "tight", word: "eda mone", tip: () => `${DETAIN}% to ${STEADY}%, or under your minimum: close to the line` },
+    steady: { cls: "steady", word: "mastundhi", tip: () => `${STEADY}% to ${SUSEGAD}%: comfortable` },
+    relaxed: { cls: "good", word: "susegad", tip: () => `${SUSEGAD}% and up: relax` },
   };
+  // A small tooltip for the tags, in the extension's own look. Opens on hover, focus or tap; Esc, scrolling or leaving closes it.
+  // It is appended to the same root as the tag (the shadow root on the portal, the body in the popup) and placed with fixed coordinates, so no card can clip it.
+  let tipEl = null, tipFor = null;
+  const hideTip = () => { tipEl?.remove(); tipEl = tipFor = null; };
+  const showTip = (anchor, text) => {
+    hideTip();
+    const root = anchor.getRootNode();
+    tipEl = h("div", { class: "cue tip", role: "tooltip" }, text); tipFor = anchor;
+    (root === document ? document.body : root).appendChild(tipEl);
+    const a = anchor.getBoundingClientRect(), t = tipEl.getBoundingClientRect();
+    tipEl.style.left = `${Math.round(Math.min(Math.max(8, a.left + a.width / 2 - t.width / 2), innerWidth - t.width - 8))}px`;
+    tipEl.style.top = `${Math.round(a.top - t.height - 8 >= 8 ? a.top - t.height - 8 : a.bottom + 8)}px`;
+  };
+  document.addEventListener("scroll", hideTip, true);
+  document.addEventListener("pointerdown", (e) => { if (e.target !== tipFor) hideTip(); }, true);
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") hideTip(); }, true);
+  document.addEventListener("pointermove", () => { if (tipFor && !tipFor.isConnected) hideTip(); }, true); // the popup redraws: a tag that is gone must not leave its tooltip behind
   // Never "relaxed" or "steady" beside "below your minimum": under your own minimum (thr) the best a tag can say is tight.
   const tierOf = (pct, thr = 0) => (pct < DETAIN ? "low" : pct >= SUSEGAD && pct >= thr ? "relaxed" : pct >= STEADY && pct >= thr ? "steady" : "tight");
   // The tag next to a course or the overall number.
   // Styled as a quiet italic aside (.vibe), never as a chip: the can-bunk / attend chip stays the loudest thing.
-  const vibeTag = (pct, thr) => { const t = TIERS[tierOf(pct, thr)]; return h("span", { class: `vibe ${t.cls}`, title: t.title() }, t.word); };
+  // plain = it sits inside a button (the pill): hover only, no extra tab stop.
+  const vibeTag = (pct, thr, plain) => {
+    const t = TIERS[tierOf(pct, thr)], text = t.tip();
+    const el = h("span", { class: `vibe ${t.cls}`, tabindex: plain ? null : "0", "aria-label": `${t.word}: ${text}` }, t.word);
+    // Hover needs a pause (a cursor passing over the tag must not pop it up); focus and tap show it straight away.
+    let wait = null;
+    el.addEventListener("pointerenter", (e) => { if (e.pointerType !== "touch") wait = setTimeout(() => showTip(el, text), 700); });
+    el.addEventListener("pointerleave", () => { clearTimeout(wait); if (tipFor === el) hideTip(); });
+    el.addEventListener("click", () => (tipFor === el ? hideTip() : showTip(el, text))); // tap
+    if (!plain) { el.addEventListener("focus", () => showTip(el, text)); el.addEventListener("blur", () => { if (tipFor === el) hideTip(); }); }
+    return el;
+  };
   // The same aside as a lead-in for a headline ("pakka detain · ..."). The real message stays the main text.
   const vibeLead = (pct, thr) => [vibeTag(pct, thr), " "];
   // Below the official ESE overall the user can still choose their own target, but it is flagged in red.

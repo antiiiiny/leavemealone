@@ -591,7 +591,7 @@
 
     pill.className = `pill ${tone(op, threshold)}${pill.classList.contains("clicked") ? " clicked" : ""}`;
     pill.setAttribute("aria-expanded", String(A.open));
-    const tag = UI.vibeTag(op, threshold); tag.classList.add("sub");
+    const tag = UI.vibeTag(op, threshold, true); tag.classList.add("sub");
     pill.replaceChildren(h("i"), `${op.toFixed(2)}%`, UI.detain(op) ? tag : lowN ? h("span", { class: "sub" }, `${lowN} low`) : tag); // overall low: say so; else "N low" if some course is; else the overall's tag
     sub.replaceChildren(snap.semester, sep(), `minimum ${threshold}%`);
     for (const [id, btn] of tabs) {
