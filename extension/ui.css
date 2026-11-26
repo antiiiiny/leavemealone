@@ -310,14 +310,14 @@ svg.ic { width: 16px; height: 16px; flex: none; }
 .dow div { color: var(--mute); font-size: var(--t12); font-weight: 500; padding-bottom: 2px; }
 .cday { height: 40px; border-radius: var(--r-chip); display: flex; flex-direction: column; align-items: center; justify-content: center; font: 500 var(--t13)/1.1 var(--font-body); padding: 0; border: 1px solid transparent; background: transparent; color: var(--ink); }
 .cday i { font-style: normal; font-size: 8px; letter-spacing: 1px; color: var(--mute); }
-.cday.open { border-radius: 8px; background: var(--well); border-color: transparent; box-shadow: var(--in-well); transition: border-color var(--d-hover) var(--ease), transform var(--d-hover) var(--ease); }
+.cday.open { border-radius: var(--r-ctl); background: var(--well); border-color: transparent; box-shadow: var(--in-well); transition: border-color var(--d-hover) var(--ease), transform var(--d-hover) var(--ease); }
 .cday.open:hover { border-color: var(--pick); }
 .cday.open:active, .cday.sel:active { transform: scale(.94); transition-duration: var(--d-press); }
 .cday.open.risk { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--bad) 75%, transparent), var(--in-well); }
-.cday.sel { border-radius: 8px; background: var(--pick); color: var(--onpick); border-color: transparent; box-shadow: var(--sh-sel); }
+.cday.sel { border-radius: var(--r-ctl); background: var(--pick); color: var(--onpick); border-color: transparent; box-shadow: var(--sh-sel); }
 .cday.sel i { color: var(--onpick); }
 .cday.off { color: var(--mute); opacity: .4; }
-.cday.hol { border-radius: 8px; background: var(--holbg); color: var(--hol); }
+.cday.hol { border-radius: var(--r-ctl); background: var(--holbg); color: var(--hol); }
 .cday.empty { visibility: hidden; }
 @keyframes cellIn { from { opacity: 0; transform: translateY(4px); } }
 @keyframes slideF { from { opacity: 0; transform: translateX(14px); } }
