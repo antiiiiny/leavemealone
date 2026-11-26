@@ -310,7 +310,7 @@
       return h("div", { class: `it2 cx${open ? " open" : ""}`, role: "button", tabindex: "0", "aria-expanded": String(open), "data-key": `cx-${c.key}`, onclick: toggle,
           onkeydown: (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(); } } },
         h("div", { class: "row" },
-          h("span", {}, h("b", { class: "nm", title: c.name }, c.name || c.code),
+          h("span", { class: "cname" }, h("b", { class: "nm", title: c.name }, c.name || c.code),
             c.code || adjusted ? h("div", { class: "cl" }, c.code ? h("span", { class: "sub" }, c.code) : null, adjusted ? chip("mute", "adj", tip) : null) : null),
           h("span", { class: "pcw" }, h("span", { class: "pc" }, h("span", { class: "p", style: `color:var(--${tone(pct, threshold)})` }, `${pct.toFixed(0)}%`),
             pct < threshold ? chip("bad", mustText(Calc.mustAttend(c.attended, c.scheduled, t))) : chip(skip ? "good" : "warn", skip ? `can bunk ${skip}` : "no bunks left")), vibe)), // the slang tag sits under the chip, in the space beside the code

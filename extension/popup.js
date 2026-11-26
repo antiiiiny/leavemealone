@@ -433,7 +433,7 @@ function courseRow(c, thr, t, showAfter) {
   const afterN = skip && showAfter && k ? h("span", { class: "to" }, `→ ${Calc.percent(c.attended, c.scheduled + k).toFixed(0)}%`) : null;
   return h("div", { class: "it2" },
     h("div", { class: "row" },
-      h("span", {}, h("b", { class: "nm", title: c.name }, c.name || c.code),
+      h("span", { class: "cname" }, h("b", { class: "nm", title: c.name }, c.name || c.code),
         c.code || adjusted ? h("div", { class: "cl" }, c.code ? h("span", { class: "sub" }, c.code) : null, adjusted ? chip("mute", "adj", tip) : null) : null),
       afterN ? h("span", { class: "rr" }, h("span", {}, num, afterN), status, vibe) : h("span", { class: "pcw" }, h("span", { class: "pc" }, num, status), vibe)), // the slang tag sits under the chip, in the space beside the code
     bar(pct, thr));
