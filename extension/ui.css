@@ -103,7 +103,8 @@ svg.ic { width: 16px; height: 16px; flex: none; }
 .it2.click:active { background: color-mix(in srgb, var(--ink) 6%, transparent); transition-duration: var(--d-press); }
 .it2.click.on { background: color-mix(in srgb, var(--pick) 10%, transparent); }
 .it2 > .row > :first-child > b.nm, .it2.minor > .row > :first-child > b.nm { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; font: 500 var(--t13)/1.35 var(--font-head); color: var(--ink); }
-.cl { display: flex; flex-wrap: wrap; align-items: center; column-gap: 8px; row-gap: 2px; min-width: 0; min-height: 21px; } /* code, tag and chip wrap under the name instead of running under the percentage */
+.cl { display: flex; flex-wrap: nowrap; align-items: center; column-gap: 8px; min-width: 0; min-height: 21px; } /* the code and the ADJ chip always stay side by side (a long code is cut, ADJ never drops a line) */
+.cl .sub { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cl .chip { flex: none; }
 .pcw { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; } /* percentage + chip, with the slang tag under them */
 .pcw .vibe { line-height: 1.2; margin-right: 6px; } /* the slang tag sits right under the chip */
@@ -236,21 +237,21 @@ svg.ic { width: 16px; height: 16px; flex: none; }
 .ab { overflow: hidden; min-height: 0; opacity: 0; transition: opacity 200ms var(--ease); }
 .acc.open .ab { opacity: 1; }
 .abp { padding: 0 var(--s4) var(--s4); }
+.abp .it2:last-child { padding-bottom: 0; } /* the last row of an open card must not add its own 12px on top of the card padding */
 .th { display: flex; justify-content: flex-end; gap: 8px; margin: 12px 0 4px; color: var(--mute); font-size: var(--t12); }
 .th span { width: 92px; text-align: center; }
 
 /* notices */
-.note { margin: 0 0 var(--s3); }
+.note { margin: 0 0 6px; }
 .sortl { display: flex; align-items: center; gap: var(--s2); }
 .preview { margin-top: var(--s4); }
-.warnbox, .updated, .toast { margin-top: var(--s4); padding: var(--s3) var(--s4); border-radius: var(--r-card); border: 1px solid var(--edge); }
+.warnbox, .updated { margin-top: var(--s4); padding: var(--s3) var(--s4); border-radius: var(--r-card); border: 1px solid var(--edge); }
 .warnbox, .updated { padding-bottom: var(--s4); }
 .warnbox b, .updated b { display: block; margin-bottom: 2px; }
 .warnbox { background: color-mix(in srgb, var(--warn) 8%, transparent); border-color: color-mix(in srgb, var(--warn) 40%, transparent); }
 .updated { background: color-mix(in srgb, var(--good) 6%, transparent); border-color: color-mix(in srgb, var(--good) 40%, transparent); }
 .warnbox.top { margin: 0 0 var(--s4); }
 .warnbox .sub, .updated .sub { text-wrap: balance; }
-.toast { display: flex; justify-content: space-between; align-items: center; background: var(--card); }
 
 /* ---- on-page dock: pill + drawer ---- */
 @keyframes dockIn { from { opacity: 0; transform: translateY(8px); } }
@@ -355,11 +356,11 @@ svg.ic { width: 16px; height: 16px; flex: none; }
 
 /* ---- popup ---- */
 body.cue { width: 380px; margin: 0; padding: var(--s4); background: var(--bg); min-height: 200px; }
-.exam { display: flex; gap: var(--s4); margin-top: var(--s4); }
+.exam { display: flex; gap: var(--s4); margin-top: var(--s3); }
 .exam > div { flex: 1; padding: var(--s3) var(--s4); }
 .exam b { display: block; font: 500 var(--t28)/1.1 var(--font-head); letter-spacing: -.03em; }
 .exam span { color: var(--mute); font-size: var(--t12); }
-.exam + .note { margin-top: var(--s3); }
+.exam + .note { margin-top: 10px; }
 .arow { display: grid; grid-template-columns: 24px 40px 1fr auto; gap: 10px; align-items: center; padding: 8px 0; }
 .arow .pt { text-align: right; }
 .blk .arow:last-child { padding-bottom: var(--s3); }
@@ -506,7 +507,10 @@ body.cue .hero .v { font-size: 44px; }
 .support .row { flex: none; gap: var(--s2); }
 .helpblk { margin-top: var(--s4); padding-bottom: var(--s3); }
 .helpblk .setgrp-t { padding-top: var(--s3); }
-.help-na { padding-top: var(--s3); border-top: 1px solid var(--line); margin-top: var(--s2); }
+.creditblk { margin-top: var(--s4); text-align: center; } /* under the Help & support tile, not inside it */
+.creditblk .credit { font: 500 var(--t13)/1.4 var(--font-head); color: var(--ink); } /* who made it: the line people should read; the disclaimer under it stays quiet */
+.creditblk .credit b { font-weight: 500; }
+.creditblk .sub { margin-top: 2px; }
 
 /* header summary of the absent drawer: items wrap whole (no dangling separator), and long labels beside a number wrap above it */
 .sumline { display: flex; flex-wrap: wrap; gap: 0 var(--s3); }

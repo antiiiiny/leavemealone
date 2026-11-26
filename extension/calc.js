@@ -97,7 +97,7 @@ const Calc = {
     });
     // Co-curricular claims (typed or marked on Absent Details) add to the overall aggregate only.
     const sum = (k) => courses.reduce((n, c) => n + c[k], 0);
-    const cc = (snap.hasCc ? 0 : (adj && adj.cocurricular) || 0) + sum("ccHrs"); // typed co-curricular hours: ignored once the portal has the column
+    const cc = ((adj && adj.cocurricular) || 0) + sum("ccHrs"); // typed hours are extra classes the portal has not added yet, so they count with or without the Co-curricular column
     const withCc = sum("attended") + cc, scheduled = sum("scheduled");
     // Medical leave (policy text): only considered when the aggregate with co-curricular is
     // at least 74.5%, and only applied when it is below 85%. In that band the hours are

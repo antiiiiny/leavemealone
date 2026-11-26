@@ -195,7 +195,7 @@ function drawAll() {
       supportCard(),
       h("div", { class: "blk free", style: "margin-top:12px" }, h("div", { class: "h3" }, "No attendance data yet"), h("p", { class: "sub" }, "Open the CUE attendance page once (table view) and it will appear here."), openBtn()),
       h("div", { class: "blk", style: "margin-top:12px" }, dataRows()), // a new browser can bring its data in before syncing
-      helpBlock(false),
+      helpBlock(false), creditBlock(),
     ].filter(Boolean));
     return;
   }
@@ -274,8 +274,8 @@ function drawAll() {
 
     if (!D.timetable) {
       bestCard = h("div", {}, h("div", { class: "sec" }, "Best days to bunk"), h("div", { class: "sub" }, "Open your CUE timetable once to unlock bunk planning"));
-    } else if (basis !== "now") { // before an exam any safe day is as good as another, so no list: just the planner
-      bestCard = openBtn("Plan on CUE");
+    } else if (basis !== "now") { // before an exam any safe day is as good as another, so no list: the Plan on CUE button above covers it
+      bestCard = null;
     } else {
       const best = Plan.bestDays({ eff, tt: D.timetable, courses: eff.courses, basis, t: line, from, limit: 3 });
       bestCard = h("div", {},
@@ -287,8 +287,7 @@ function drawAll() {
                 h("div", { class: "brk" }, h("span", { class: "sub" }, plural(b.classes, "class")), UI.breakTag(b.breakDays) ? chip("mute", ...UI.breakTag(b.breakDays)) : null),
                 UI.breakTag(b.breakDays) && b.breakNames.length ? h("div", { class: "sub brkn", title: b.breakNames.join(", ") }, b.breakNames.join(", ")) : null);
             }))
-          : h("div", { class: "sub" }, basis === "mse" ? "No class days left before MSE" : "No class days left this semester"),
-        openBtn("Plan on CUE"));
+          : h("div", { class: "sub" }, basis === "mse" ? "No class days left before MSE" : "No class days left this semester"));
     }
   }
 
@@ -313,7 +312,7 @@ function drawAll() {
           const parts = [[c.laterHrs, "later"], [c.ccHrs, "co-curricular"], [c.medHrs, "medical"]].filter(([x]) => x).map(([x, n]) => `${fmt(x)}h ${n}`);
           const key = `clear:${c.key}`;
           return h("div", { class: "it2" },
-            h("div", { class: "row" }, h("span", {}, h("b", {}, c.code || c.name)), c.excusedHrs
+            h("div", { class: "row" }, h("span", {}, h("b", { title: c.code || "" }, c.name || c.code)), c.excusedHrs
               ? confirming.has(key)
                 ? h("span", {}, h("span", { class: "bad" }, "Clear marks? "), h("button", { class: "link", onclick: () => { confirming.delete(key); delete D.excused[viewSem][c.key]; save({ excused: D.excused }); } }, "yes"), sep(), h("button", { class: "link", onclick: () => { confirming.delete(key); draw(); } }, "no"))
                 : h("button", { class: "link", onclick: () => { confirming.add(key); draw(); } }, "clear")
@@ -371,12 +370,10 @@ function drawAll() {
   // ---- adjustments (rare path) and settings
   const num = (v, label, onchange) => stepper(v || 0, { min: 0, max: 999, label, key: `adj-${label}`, live: true, onchange });
   const adjBox = acc({ title: "Add hours the portal is missing", icon: "clock", tone: "good", sub: "For a class the portal has not counted", open: accOpen.has("adj"), ontoggle: toggleAcc("adj") },
-    D.snapshots[viewSem].hasCc
-      ? h("div", { class: "sub", style: "padding-top:12px" }, "Co-curricular claims aren't needed: the portal already includes them")
-      : h("div", { class: "row", style: "padding-top:12px" }, h("span", { class: "lbl" }, "Co-curricular hours pending"), num(adj.cocurricular, "co-curricular hours", (v) => {
-          const adjust = D.adjust; (adjust[viewSem] = adjust[viewSem] || { cocurricular: 0, courses: {} }).cocurricular = v;
-          save({ adjust });
-        })),
+    h("div", { class: "row", style: "padding-top:12px" }, h("span", { class: "lbl" }, "Co-curricular hours pending"), num(adj.cocurricular, "co-curricular hours", (v) => {
+      const adjust = D.adjust; (adjust[viewSem] = adjust[viewSem] || { cocurricular: 0, courses: {} }).cocurricular = v;
+      save({ adjust });
+    })),
     h("div", { class: "th" }, h("span", {}, "Attended"), h("span", {}, "Held")),
     courses.map((c) => h("div", { class: "row", style: "padding:3px 0" }, h("span", { class: "lbl", title: c.name }, c.code || c.name),
       h("span", { class: "row" }, num(c.adj.att, `${c.code || c.name} attended`, (v) => setCourseAdj(viewSem, c, "att", v)), num(c.adj.sch, `${c.code || c.name} held`, (v) => setCourseAdj(viewSem, c, "sch", v))))),
@@ -416,7 +413,7 @@ function drawAll() {
   if (examTiles) examTiles.dataset.tour = "exam";
   if (bestCard) bestCard.dataset.tour = "best";
 
-  app.replaceChildren(...[header, staleBox, supportBox, overall, examCard, bestCard, needs, safeBox, absBox, pending, holBox, adjBox, settings, bestCard && D.timetable ? null : openBtn(), helpBlock(true), h("div", { class: "tagline" }, UI.TAGLINE)].filter(Boolean));
+  app.replaceChildren(...[header, staleBox, supportBox, overall, viewSem === D.latest ? openBtn("Plan on CUE") : null, examCard, bestCard, needs, safeBox, absBox, pending, adjBox, holBox, settings, helpBlock(true), creditBlock(), h("div", { class: "tagline" }, UI.TAGLINE)].filter(Boolean));
   const anchor = byKey(lastKey);
   document.documentElement.scrollTop = anchorTop != null && anchor ? y + anchor.getBoundingClientRect().top - anchorTop : y; // keep that control where it was
 }
@@ -458,7 +455,12 @@ function helpBlock(withTour) {
     row("Chip in", "UPI or a star on GitHub. It stays free either way.", open("#support", "Open")),
     row("Report a bug", "Opens a short form that files it on GitHub", open("#report", "Report")),
     withTour ? row("Quick tour", "Replays this tour now and the pill tour on your next CUE visit", h("button", { class: "btn sm", onclick: () => chrome.storage.local.set({ tour: {} }).then(() => { D.tour = {}; startTour(); }) }, "Replay")) : null,
-    h("div", { class: "sub help-na" }, `${UI.ABOUT.notAffiliated} Developed by ${UI.ABOUT.by}`));
+    null);
+}
+
+// Who made it + the disclaimer: its own block under Help & support, not inside that tile.
+function creditBlock() {
+  return h("div", { class: "creditblk" }, h("div", { class: "credit" }, "Developed by ", h("b", {}, UI.ABOUT.by)), h("div", { class: "sub" }, UI.ABOUT.notAffiliated));
 }
 
 function openBtn(text = "Open CUE") {

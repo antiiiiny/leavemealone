@@ -47,7 +47,8 @@ const UI = (() => {
   const vibeLead = (pct, thr) => [vibeTag(pct, thr), " "];
   // Below the official ESE overall the user can still choose their own target, but it is flagged in red.
   const eseFlag = (pct, official) => (pct < official ? h("div", { class: "sub bad eseflag", role: "status" }, "fine you will pay uh?") : null);
-  const tone = (pct, thr) => (pct < thr ? "bad" : pct < thr + 10 ? "warn" : "good");
+  // % / bar colour: red under your own minimum; above it, the same line as the "susegad" tag (green from 85), so the number and the tag never disagree (at a 90% minimum a 92% course is green, and its chip still says "no bunks left").
+  const tone = (pct, thr) => (pct < thr ? "bad" : pct >= SUSEGAD ? "good" : "warn");
   const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   const dayLabel = (d) => `${DAYS[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]}`; // Thu 12 Nov
