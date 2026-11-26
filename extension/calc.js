@@ -72,11 +72,12 @@ const Calc = {
       let goneHrs = 0;
       if (e) for (const r of e.rows) {
         if (r.gone) { goneHrs += r.h; continue; }
+        // Once the portal shows a Co-curricular column (semester end) its attended already includes the hours IT labelled
+        // co-curricular (r.p), so those must not be added again. Hours only you marked C are still plain absent there,
+        // so they count: dropping them made every co-curricular mark a no-op for students whose table has the column.
+        if (snap.hasCc && r.p && r.s === "cc") continue;
         sums[r.s === "cc" || r.s === "med" ? r.s : "later"] += r.h;
       }
-      // Once the portal shows a Co-curricular column (semester end) its attended already
-      // includes co-curricular hours, so ours must not be added again.
-      if (snap.hasCc) sums.cc = 0;
       const total = sums.later + sums.cc + sums.med;
       const f = c.absent != null && total > c.absent ? c.absent / total : 1; // never more than the portal's absent hrs
       const later = sums.later * f, cc = sums.cc * f, med = sums.med * f;
@@ -96,7 +97,7 @@ const Calc = {
     });
     // Co-curricular claims (typed or marked on Absent Details) add to the overall aggregate only.
     const sum = (k) => courses.reduce((n, c) => n + c[k], 0);
-    const cc = (snap.hasCc ? 0 : (adj && adj.cocurricular) || 0) + sum("ccHrs");
+    const cc = ((adj && adj.cocurricular) || 0) + sum("ccHrs"); // typed hours are extra classes the portal has not added yet, so they count with or without the Co-curricular column
     const withCc = sum("attended") + cc, scheduled = sum("scheduled");
     // Medical leave (policy text): only considered when the aggregate with co-curricular is
     // at least 74.5%, and only applied when it is below 85%. In that band the hours are

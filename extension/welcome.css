@@ -1,12 +1,19 @@
 /* welcome.html only: page layout on top of ui.css, so it shares the extension's tokens, font and components
    (bar, chip, seg, dbadge, btn, link). Navy and gold only; green/red live only in the demo.
    Free-flowing: no section boxes or divider lines; sections are set apart by space, a gold label and type. */
+/* page-only tokens (the QR stays pure white so every UPI app scans it) */
+:root { --white: #fff; --scrim: rgba(7, 11, 23, .72); --scrim-solid: rgba(7, 11, 23, .94); --drop: rgba(0, 0, 0, .5); }
 html { background: var(--bg-deep); }
-body { margin: 0; background: radial-gradient(1200px 600px at 85% -10%, #17224A 0%, transparent 60%), var(--bg-deep); min-height: 100vh; }
+body { margin: 0; background: var(--bg-deep); min-height: 100vh; }
 img { display: block; }
 h1, h2, p, figure { margin: 0; }
-.page { max-width: 900px; margin: 0 auto; padding: 20px 16px 28px; display: grid; gap: 56px; font-size: var(--t15); line-height: 1.55; }
+h1, h2 { text-wrap: balance; }
+.page { max-width: 1040px; margin: 0 auto; padding: 20px 16px 16px; display: grid; gap: 44px; font-size: 16px; line-height: 1.6; }
 .page a { text-decoration: none; }
+.page-main { display: grid; gap: 32px; }
+.skip { position: absolute; left: 16px; top: -48px; z-index: 10; padding: 10px 14px; border-radius: var(--r-ctl); background: var(--pick); color: var(--onpick); font: 600 var(--t13) var(--font-head); }
+.skip:focus { top: 12px; }
+.page { position: relative; }
 .page .link:hover { text-decoration: underline; text-underline-offset: 3px; }
 
 /* top line */
@@ -20,94 +27,142 @@ h1, h2, p, figure { margin: 0; }
 .panel-card { display: grid; gap: 10px; align-content: start; }
 .panel-card[hidden] { display: none; }
 .panel-card h2 { font: 500 24px/1.2 var(--font-head); letter-spacing: -.015em; }
-.panel-card p { color: var(--mute); }
+.page .kicker { color: var(--gold); font: 600 13px/1.2 var(--font-head); letter-spacing: .08em; text-transform: uppercase; } /* the same small caps as the extension's chips */
+.panel-card .kicker { margin-bottom: 2px; }
+.panel-card p { color: var(--mute); font-size: 16px; }
+.panel-card .demo p { font-size: var(--t12); } /* the demo is a miniature of the real UI, not page copy */
 
 /* buttons: the extension's, with page-sized tap targets and one gold call to action */
-.page .btn, .qr-big .btn { height: 40px; padding: 0 16px; font-size: var(--t13); }
-.page .btn.sm { height: 34px; padding: 0 12px; }
+.page .btn, .qr-big .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 44px; padding: 0 20px; font: 500 var(--t15) var(--font-body); } /* one size for every page button */
+.page .btn.gold { font-weight: 600; }
+.page .btn .ic, .page .link .ic { width: 14px; height: 14px; flex: none; }
+.page .link { display: inline-flex; align-items: center; gap: 6px; }
+.page .btn.sm { padding: 0 18px; } /* Copy: the same height as every other button */
 .page .btn:not(.gold), .qr-big .btn { background: var(--card2); border-color: transparent; }
 .page .btn:not(.gold):hover:not(:disabled), .qr-big .btn:hover { background: color-mix(in srgb, var(--card2) 80%, var(--ink)); border-color: transparent; }
 .btn.gold { background: var(--pick); border-color: var(--pick); color: var(--onpick); font-weight: 600; }
-.btn.gold:hover:not(:disabled) { background: color-mix(in srgb, var(--pick) 88%, #fff); border-color: color-mix(in srgb, var(--pick) 88%, #fff); }
+.btn.gold:hover:not(:disabled) { background: color-mix(in srgb, var(--pick) 88%, var(--white)); border-color: color-mix(in srgb, var(--pick) 88%, var(--white)); }
 
 /* 1. hello */
-.hello { grid-template-columns: 1fr 1fr; gap: 40px; align-items: center; padding-top: 12px; animation: enter 500ms var(--ease) both; }
-.page .kicker { color: var(--gold); font: 600 var(--t12)/1 var(--font-head); letter-spacing: .08em; text-transform: uppercase; }
-.hello h1 { margin-top: 10px; font: 500 clamp(32px, 4.4vw, 46px)/1.05 var(--font-head); letter-spacing: -.025em; color: var(--ink-hi); }
-.steps { list-style: none; margin: 18px 0 22px; padding: 0; display: grid; gap: 10px; }
-.steps li { display: flex; align-items: baseline; gap: 10px; color: var(--mute); }
+.hello { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 40px; align-items: start; padding-top: 8px; animation: enter 500ms var(--ease) both; }
+.hello h1 { margin-top: 8px; font: 500 clamp(32px, 4.4vw, 46px)/1.05 var(--font-head); letter-spacing: -.025em; color: var(--ink-hi); }
+.steps { list-style: none; counter-reset: step; margin: 20px 0 24px; padding: 0; display: grid; gap: 12px; }
+.steps li { display: grid; grid-template-columns: 28px 1fr; align-items: center; gap: 12px; color: var(--mute); counter-increment: step; }
+.steps li::before { content: counter(step); display: grid; place-items: center; width: 28px; height: 28px; border-radius: var(--r-ctl); font: 600 var(--t13)/1 var(--font-head); color: var(--gold); background: var(--gold-bg); }
 .steps li b { color: var(--ink); font-weight: 600; }
-.steps i { font-style: normal; flex: none; width: 22px; height: 22px; border-radius: var(--r-chip); display: inline-grid; place-items: center; font: 600 12px var(--font-head); color: var(--gold); background: var(--gold-bg); transform: translateY(-1px); }
 
 /* the demo: a drawer-like card in a well, mark a day "C", watch the number move */
 .demo { position: relative; display: grid; gap: 12px; padding: 14px; border-radius: var(--r-card); background: var(--well); box-shadow: var(--in-well); }
+.demo figcaption { padding: 0 2px; line-height: 1.45; }
+.demo figcaption b { color: var(--gold); }
 .demo-hero, .demo-day { background-color: var(--card-base); background-image: var(--layer); border-radius: 12px; box-shadow: var(--hi); padding: 14px 16px; }
 .demo-hero .v { margin-top: 6px; font: 500 44px/1 var(--font-head); letter-spacing: -.02em; color: var(--bad); transition: color 300ms var(--ease); }
 .demo.up .demo-hero .v { color: var(--good); }
 .demo-hero .bar { height: 8px; margin: 12px 0 8px; }
-.demo-hero .bar i { width: 74.12%; background: var(--bad); transition: width 900ms var(--ease), background-color 300ms var(--ease); }
+.demo-hero .bar i { width: 100%; transform: scaleX(.7412); transform-origin: left; background: var(--bad); transition: transform 900ms var(--ease), background-color 300ms var(--ease); }
 .demo.up .demo-hero .bar i { background: var(--good); }
 .demo-hero .chip { transition: background-color 250ms var(--ease), color 250ms var(--ease); }
-.demo-day > .row { gap: 12px; }
-.demo-day .hx { flex: 1; min-width: 0; }
+.demo-day { padding: 6px 16px 10px; }
 .demo-day .seg button { cursor: default; }
 .demo-day .seg button.press { transform: scale(.88); transition: transform 80ms; }
-.demo-day ul { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 6px; font-size: var(--t13); color: var(--mute); }
-.demo-day li { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
-.demo-day .chip { min-width: 112px; text-align: center; transition: background-color 250ms var(--ease), color 250ms var(--ease); }
-.demo figcaption { padding: 0 2px; line-height: 1.45; }
-.demo figcaption b { color: var(--gold); }
-.cursor { position: absolute; left: 0; top: 0; width: 22px; height: 22px; fill: var(--ink-hi); stroke: var(--bg); stroke-width: 1.4; stroke-linejoin: round; filter: drop-shadow(0 2px 3px rgba(0,0,0,.5)); opacity: 0; pointer-events: none;
+.demo-hero .vibe { font-size: var(--t13); }
+.demo-hero p + p { margin-top: 4px; }
+.cursor { position: absolute; left: 0; top: 0; width: 22px; height: 22px; fill: var(--ink-hi); stroke: var(--bg); stroke-width: 1.4; stroke-linejoin: round; filter: drop-shadow(0 2px 3px var(--drop)); opacity: 0; pointer-events: none;
   transition: transform 750ms var(--ease), opacity 250ms var(--ease); }
 .cursor.tap { scale: .85; transition: transform 750ms var(--ease), opacity 250ms var(--ease), scale 90ms; }
 
 /* 2. chip in + build */
-.grid { display: grid; grid-template-columns: 1.25fr 1fr; gap: 40px 56px; }
-.w-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; margin-top: 4px; }
-.pay { grid-template-columns: 1fr auto; align-items: center; gap: 18px; }
-.pay > div { display: grid; gap: 10px; }
-.upi { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 2px; }
+.grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 56px; align-items: stretch; }
+.grid .panel-card { display: flex; flex-direction: column; gap: 10px; }
+.grid .panel-card h2 { font-size: 20px; }
+.grid .panel-card p { max-width: 32em; }
+.card-act { display: flex; align-items: center; min-height: 64px; padding-top: 8px; } /* both rows are as tall as the QR and centre their controls on one line */
+.w-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 20px; }
+.pay-row { display: flex; align-items: center; gap: 14px; }
+.upi-col { display: grid; gap: 6px; min-width: 0; }
+.upi { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 code { font: 500 13.5px ui-monospace, "Cascadia Mono", Consolas, monospace; color: var(--gold); background: var(--gold-bg); padding: 6px 10px; border-radius: var(--r-ctl); }
-.qr-thumb { display: grid; justify-items: center; gap: 8px; padding: 0; border: 0; background: none; cursor: zoom-in; font: 600 var(--t12) var(--font-head); color: var(--gold);
+.qr-thumb { display: grid; padding: 0; border: 0; background: none; cursor: zoom-in; flex: none;
   transition: border-color var(--d-hover) var(--ease), transform var(--d-hover) var(--ease); }
-.qr-thumb img { border-radius: 10px; background: #fff; padding: 6px; box-sizing: content-box; box-shadow: 0 0 0 3px var(--gold-bg); transition: box-shadow var(--d-hover) var(--ease); }
+.qr-thumb img { border-radius: 8px; background: var(--white); padding: 4px; box-sizing: content-box; box-shadow: 0 0 0 3px var(--gold-bg); transition: box-shadow var(--d-hover) var(--ease); }
 .qr-thumb:hover img { box-shadow: 0 0 0 3px var(--gold); }
 .qr-thumb:active { transform: scale(.97); }
 
 /* the QR, centre stage (the code stays dark on white so every app scans it) */
 .qr-big { border: 0; padding: 24px 24px 20px; border-radius: var(--r-drawer); background-color: var(--card-base); background-image: var(--layer); color: var(--ink); text-align: center; box-shadow: var(--hi), var(--sh-tour); max-width: calc(100vw - 32px); }
 .qr-big[open] { display: grid; justify-items: center; gap: 12px; animation: pop 240ms var(--ease) both; }
-.qr-big::backdrop { background: rgba(7, 11, 23, .72); backdrop-filter: blur(4px); animation: fade 200ms ease both; }
-.qr-big img { width: min(280px, 70vw); height: auto; padding: 12px; background: #fff; box-shadow: 0 0 0 3px var(--gold); border-radius: 14px; }
+.qr-big::backdrop { background: var(--scrim); backdrop-filter: blur(4px); animation: fade 200ms ease both; }
+.qr-big img { width: min(280px, 70vw); height: auto; padding: 12px; background: var(--white); box-shadow: 0 0 0 3px var(--gold); border-radius: 14px; }
 .qr-big p { color: var(--mute); font-size: var(--t13); }
 @keyframes pop { from { opacity: 0; transform: scale(.94); } }
 @keyframes fade { from { opacity: 0; } }
 
-/* form */
-.form { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 14px; margin-top: 4px; }
-.form label { display: grid; gap: 5px; font: 500 var(--t13) var(--font-head); }
-.form .full { grid-column: 1 / -1; }
-.form label.chk { display: flex; align-items: flex-start; gap: var(--s2); font: 400 var(--t12)/1.4 var(--font-body); color: var(--mute); }
-.form label.chk input { margin-top: 2px; accent-color: var(--pick); }
-.form input, .form select, .form textarea { width: 100%; min-height: 40px; padding: 9px 12px; border: 0; border-radius: var(--r-ctl); background: var(--card-base); box-shadow: var(--hi); color: var(--ink); font: 400 var(--t13) var(--font-body); transition: border-color var(--d-hover) var(--ease); }
-.form textarea { resize: vertical; }
-.form ::placeholder { color: color-mix(in srgb, var(--mute) 70%, transparent); }
-.form input:focus, .form select:focus, .form textarea:focus { outline: none; box-shadow: 0 0 0 2px var(--pick); }
-.form [aria-invalid="true"] { box-shadow: 0 0 0 2px var(--gold-line); }
-.err { color: var(--gold); font: 500 var(--t12) var(--font-body); }
+/* report: one landscape card across both columns. Left: type, where, title. Right: the text box, tall. Bottom: the attach switch and the button. */
+.report { display: grid; gap: 14px; padding: 20px 24px 22px; border-radius: var(--r-card); background: color-mix(in srgb, var(--ink) 3%, transparent); border: 1px solid var(--edge); } /* sits in the page, not on it: a faint lift, no gradient or shadow */
+.report-head { display: grid; gap: 4px; }
+.report-head h2 { font: 500 20px/1.2 var(--font-head); letter-spacing: -.015em; }
+.report-head p { margin: 0; color: var(--mute); font-size: var(--t15); line-height: 1.5; }
+.form { display: grid; gap: 12px; }
+.form-row { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: end; }
+.form-row .field:last-child { flex: 1 1 220px; }
+.field { display: grid; gap: 6px; font: 500 var(--t13)/1.2 var(--font-head); color: var(--ink); }
+.field .lbl { font: 500 var(--t13)/1.2 var(--font-head); }
+.form select, .form input[name="title"], .form textarea { width: 100%; min-height: 40px; padding: 8px 12px; border: 1px solid color-mix(in srgb, var(--ink) 16%, transparent); border-radius: var(--r-ctl); background: var(--well); box-shadow: var(--in-well); color: var(--ink); font: 400 var(--t15) var(--font-body); }
+.form select:hover, .form input[name="title"]:hover, .form textarea:hover { border-color: color-mix(in srgb, var(--ink) 30%, transparent); }
+.form textarea { resize: vertical; min-height: 84px; line-height: 1.45; }
+.form ::placeholder { color: var(--mute); opacity: .9; }
+.form select:focus, .form input[name="title"]:focus, .form textarea:focus { outline: none; border-color: var(--pick); box-shadow: 0 0 0 2px var(--gold-line); }
+.form [aria-invalid="true"] { border-color: var(--pick); box-shadow: 0 0 0 2px var(--gold-line); }
+.types { display: inline-flex; padding: 3px; gap: 2px; border: 1px solid color-mix(in srgb, var(--ink) 16%, transparent); border-radius: var(--r-ctl); background: var(--well); box-shadow: var(--in-well); justify-self: start; }
+.types label { position: relative; }
+.types input { position: absolute; inset: 0; appearance: none; background: transparent; margin: 0; cursor: pointer; } /* invisible but not opacity 0, so its focus ring shows */
+.types span { display: block; padding: 0 12px; border-radius: var(--r-chip); color: color-mix(in srgb, var(--ink) 78%, transparent); font: 500 var(--t13)/32px var(--font-head); white-space: nowrap; transition: background-color var(--d-hover) var(--ease), color var(--d-hover) var(--ease); }
+.types input:checked + span { background: var(--pick); color: var(--onpick); font-weight: 600; }
+.types input:not(:checked):hover + span { color: var(--ink); background: color-mix(in srgb, var(--ink) 8%, transparent); }
+.types input:focus-visible { outline: 2px solid var(--pick); outline-offset: 1px; border-radius: var(--r-chip); }
+.form-go { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px 24px; padding-top: 4px; }
+/* the attach switch: the extension's own switch look, in place of a tick box */
+.swrow { position: relative; display: flex; align-items: center; gap: 12px; cursor: pointer; }
+.swrow input { position: absolute; inset: 0; appearance: none; background: transparent; margin: 0; cursor: pointer; }
+.swrow .trk { position: relative; flex: none; width: 38px; height: 22px; border-radius: 11px; background: var(--well); border: 1px solid color-mix(in srgb, var(--ink) 24%, transparent); box-shadow: var(--in-well); transition: background-color 200ms var(--ease), border-color 200ms var(--ease); }
+.swrow .trk::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: var(--mute); transition: transform 200ms var(--ease), background-color 200ms var(--ease); }
+.swrow input:checked ~ .trk { background: var(--pick); border-color: var(--pick); }
+.swrow input:checked ~ .trk::after { transform: translateX(16px); background: var(--onpick); }
+.swrow input:focus-visible { outline: 2px solid var(--pick); outline-offset: 4px; border-radius: 11px; }
+.swt { display: grid; gap: 1px; }
+.swt b { font: 500 var(--t13) var(--font-head); color: var(--ink); }
+.swt small { color: var(--mute); font-size: var(--t12); }
+.go { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; justify-content: flex-end; }
+.go .sub { font-size: 14px; }
+.go .sub:empty { display: none; }
+.go .btn { min-width: 200px; }
+.err { color: var(--gold); font: 500 var(--t13) var(--font-body); }
 
-.foot { text-align: center; color: var(--mute); font-size: var(--t12); margin-top: -16px; }
+/* the hero: one line of what it is, and the proof */
+.hello .lede { margin-top: 12px; color: var(--ink); font-size: 18px; line-height: 1.45; max-width: 30em; }
+.hello .steps { margin-top: 18px; }
+.panel-card p.proof { margin-top: 14px; font-size: var(--t13); color: var(--mute); }
+
+/* what you get: three short lines, icons from the extension's own set */
+.w-top .link.mute { color: var(--mute); padding: 10px 6px; }
+.w-actions .link { padding: 10px 4px; }
+.w-top .link.mute:hover { color: var(--ink); }
+
+.foot { display: grid; justify-items: center; gap: 12px; width: 100%; text-align: center; margin-top: -16px; padding-bottom: 4px; }
+.foot p { margin: 0; text-wrap: balance; }
+.foot .stance { color: var(--ink); font: 500 20px/1.3 var(--font-head); letter-spacing: -.015em; }
+.foot-meta { display: grid; justify-items: center; gap: 2px; max-width: 34em; }
+.foot .credit { color: var(--ink); font: 500 var(--t15) var(--font-head); }
+.foot .legal { color: var(--mute); font-size: var(--t13); line-height: 1.5; }
+.foot .link { padding: 4px 8px; font-size: var(--t13); }
 
 @keyframes enter { from { opacity: 0; transform: translateY(8px); } }
 @media (max-width: 780px) {
-  .hello, .grid { grid-template-columns: 1fr; }
-  .page { gap: 44px; }
+  .hello, .grid { grid-template-columns: minmax(0, 1fr); }
+  .page { gap: 40px; }
 }
 @media (max-width: 440px) {
-  .pay { grid-template-columns: 1fr; }
   .qr-thumb { justify-self: start; }
-  .form { grid-template-columns: 1fr; }
-  .demo { padding: 10px; }
   .demo-hero, .demo-day { padding: 12px; }
   .demo-day .chip { min-width: 0; font-size: 10px; padding: 2px 6px; }
   .demo-hero .v { font-size: 38px; }
@@ -115,3 +170,4 @@ code { font: 500 13.5px ui-monospace, "Cascadia Mono", Consolas, monospace; colo
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after, .qr-big::backdrop { animation: none !important; transition: none !important; }
 }
+@media (prefers-reduced-transparency: reduce) { .qr-big::backdrop { backdrop-filter: none; background: var(--scrim-solid); } }

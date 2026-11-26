@@ -16,9 +16,15 @@ const UI = (() => {
 
   const plural = (n, word) => `${n} ${n === 1 ? word : word + (word.endsWith("s") ? "es" : "s")}`; // 1 class, 2 classes
   const fmt = (n) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
-  // Semester labels end in a Roman numeral ("... VI"): its value, for picking the latest one (0 if none).
-  const ROMAN = { I: 1, II: 2, III: 3, IV: 4, V: 5, VI: 6, VII: 7, VIII: 8 };
-  const semRank = (label) => ROMAN[/\b(VIII|VII|VI|V|IV|III|II|I)\s*$/.exec(label.toUpperCase().replace(/\s*\[[^\]]*\]\s*$/, ""))?.[1]] || 0;
+  // Semester labels end in a number, usually Roman ("... VI"; five-year programmes go to X), sometimes "6": its value, for picking the latest one (0 if none).
+  const ROMAN = { I: 1, II: 2, III: 3, IV: 4, V: 5, VI: 6, VII: 7, VIII: 8, IX: 9, X: 10, XI: 11, XII: 12 };
+  const semRank = (label) => {
+    const s = (label || "").toUpperCase().replace(/\s*\[[^\]]*\]\s*$/, "").trim();
+    return ROMAN[/\b(XII|XI|X|IX|VIII|VII|VI|V|IV|III|II|I)$/.exec(s)?.[1]] || parseInt(/(\d{1,2})$/.exec(s)?.[1], 10) || 0;
+  };
+  // Saved semesters, newest first: the highest number, and between equal ones (a label with no number at all) the one read most recently.
+  // Never the insertion order: with equal ranks that put the OLDEST semester first, so marks went to a semester the drawer wasn't showing.
+  const semOrder = (snaps) => Object.keys(snaps || {}).sort((a, b) => semRank(b) - semRank(a) || ((snaps[b] && snaps[b].syncedAt) || 0) - ((snaps[a] && snaps[a].syncedAt) || 0));
   // Below 75% the university detains you, whatever minimum you set in the extension.
   const DETAIN = 75; // = Calc.DETAIN (ui.js also loads alone on the welcome page, where Calc isn't there)
   const detain = (pct) => pct < DETAIN;
@@ -27,21 +33,50 @@ const UI = (() => {
   const STEADY = 80;
   const SUSEGAD = 85; // = Calc.ESE
   const TIERS = {
-    low: { cls: "bad", word: "pakka detain", title: () => `Below ${DETAIN}%: not allowed to write the exams unless it comes back up` },
-    tight: { cls: "tight", word: "eda mone", title: () => `${DETAIN}% to ${STEADY}%: above the line, but close` },
-    steady: { cls: "steady", word: "mastundhi", title: () => `${STEADY}% to ${SUSEGAD}%: comfortable` },
-    relaxed: { cls: "good", word: "susegad", title: () => `${SUSEGAD}% or more: relax` },
+    low: { cls: "bad", word: "pakka detain", tip: () => `Below ${DETAIN}%: detention territory` },
+    tight: { cls: "tight", word: "eda mone", tip: () => `${DETAIN}% to ${STEADY}%, or under your minimum: close to the line` },
+    steady: { cls: "steady", word: "mastundhi", tip: () => `${STEADY}% to ${SUSEGAD}%: comfortable` },
+    relaxed: { cls: "good", word: "susegad", tip: () => `${SUSEGAD}% and up: relax` },
   };
+  // A small tooltip for the tags, in the extension's own look. Opens on hover, focus or tap; Esc, scrolling or leaving closes it.
+  // It is appended to the same root as the tag (the shadow root on the portal, the body in the popup) and placed with fixed coordinates, so no card can clip it.
+  let tipEl = null, tipFor = null;
+  const hideTip = () => { tipEl?.remove(); tipEl = tipFor = null; };
+  const showTip = (anchor, text) => {
+    hideTip();
+    const root = anchor.getRootNode();
+    tipEl = h("div", { class: "cue tip", role: "tooltip" }, text); tipFor = anchor;
+    (root === document ? document.body : root).appendChild(tipEl);
+    const a = anchor.getBoundingClientRect(), t = tipEl.getBoundingClientRect();
+    tipEl.style.left = `${Math.round(Math.min(Math.max(8, a.left + a.width / 2 - t.width / 2), innerWidth - t.width - 8))}px`;
+    tipEl.style.top = `${Math.round(a.top - t.height - 8 >= 8 ? a.top - t.height - 8 : a.bottom + 8)}px`;
+  };
+  document.addEventListener("scroll", hideTip, true);
+  document.addEventListener("pointerdown", (e) => { if (e.target !== tipFor) hideTip(); }, true);
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") hideTip(); }, true);
+  document.addEventListener("pointermove", () => { if (tipFor && !tipFor.isConnected) hideTip(); }, true); // the popup redraws: a tag that is gone must not leave its tooltip behind
   // Never "relaxed" or "steady" beside "below your minimum": under your own minimum (thr) the best a tag can say is tight.
   const tierOf = (pct, thr = 0) => (pct < DETAIN ? "low" : pct >= SUSEGAD && pct >= thr ? "relaxed" : pct >= STEADY && pct >= thr ? "steady" : "tight");
   // The tag next to a course or the overall number.
   // Styled as a quiet italic aside (.vibe), never as a chip: the can-bunk / attend chip stays the loudest thing.
-  const vibeTag = (pct, thr) => { const t = TIERS[tierOf(pct, thr)]; return h("span", { class: `vibe ${t.cls}`, title: t.title() }, t.word); };
+  // plain = it sits inside a button (the pill): hover only, no extra tab stop.
+  const vibeTag = (pct, thr, plain) => {
+    const t = TIERS[tierOf(pct, thr)], text = t.tip();
+    const el = h("span", { class: `vibe ${t.cls}`, tabindex: plain ? null : "0", "aria-label": `${t.word}: ${text}` }, t.word);
+    // Hover needs a pause (a cursor passing over the tag must not pop it up); focus and tap show it straight away.
+    let wait = null;
+    el.addEventListener("pointerenter", (e) => { if (e.pointerType !== "touch") wait = setTimeout(() => showTip(el, text), 700); });
+    el.addEventListener("pointerleave", () => { clearTimeout(wait); if (tipFor === el) hideTip(); });
+    el.addEventListener("click", () => (tipFor === el ? hideTip() : showTip(el, text))); // tap
+    if (!plain) { el.addEventListener("focus", () => showTip(el, text)); el.addEventListener("blur", () => { if (tipFor === el) hideTip(); }); }
+    return el;
+  };
   // The same aside as a lead-in for a headline ("pakka detain · ..."). The real message stays the main text.
   const vibeLead = (pct, thr) => [vibeTag(pct, thr), " "];
   // Below the official ESE overall the user can still choose their own target, but it is flagged in red.
   const eseFlag = (pct, official) => (pct < official ? h("div", { class: "sub bad eseflag", role: "status" }, "fine you will pay uh?") : null);
-  const tone = (pct, thr) => (pct < thr ? "bad" : pct < thr + 10 ? "warn" : "good");
+  // % / bar colour: red under your own minimum; above it, the same line as the "susegad" tag (green from 85), so the number and the tag never disagree (at a 90% minimum a 92% course is green, and its chip still says "no bunks left").
+  const tone = (pct, thr) => (pct < thr ? "bad" : pct >= SUSEGAD ? "good" : "warn");
   const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   const dayLabel = (d) => `${DAYS[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]}`; // Thu 12 Nov
@@ -364,5 +399,5 @@ const UI = (() => {
     return { refresh: place, end: () => end(false), get active() { return live; } };
   };
 
-  return { h, diag, eseFlag, semRank, DETAIN, detain, STEADY, SUSEGAD, vibeTag, vibeLead, tour, absentSummary, absentDays, daySeg, hrsOf, plural, fmt, tone, dayLabel, niceDate, nicePeriod, startTime, ico, sep, chip, bar, TAGLINE, mustText, breakTag, ABOUT, placeThumb, tween, pills, stepper, toggle, acc };
+  return { h, diag, eseFlag, semRank, semOrder, DETAIN, detain, STEADY, SUSEGAD, vibeTag, vibeLead, tour, absentSummary, absentDays, daySeg, hrsOf, plural, fmt, tone, dayLabel, niceDate, nicePeriod, startTime, ico, sep, chip, bar, TAGLINE, mustText, breakTag, ABOUT, placeThumb, tween, pills, stepper, toggle, acc };
 })();

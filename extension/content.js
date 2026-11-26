@@ -23,14 +23,19 @@
   };
   const semester = () => (document.querySelector('[role="combobox"]')?.textContent.trim() || "unknown").replace(/\s*\[[^\]]*\]\s*$/, ""); // the portal adds "[On Roll]" / "[Semester Completed]"
   const plain = (k) => k.replace(/\s*\[[^\]]*\]\s*$/, "");
-  // Data saved while the label still carried the bracket moves to the plain label (the newer bracketed copy wins).
-  function plainKeys(o) {
+  // Data saved while the label still carried the bracket moves to the plain label. `merge(plainCopy, bracketedCopy)` combines the two when both
+  // exist (marks are per course: the newer bracketed copy wins for ITS courses but must not wipe the plain copy's other courses); without it the bracketed copy replaces.
+  function plainKeys(o, merge) {
     let moved = false;
-    for (const k of Object.keys(o || {})) if (plain(k) !== k) { o[plain(k)] = o[k]; delete o[k]; moved = true; }
+    for (const k of Object.keys(o || {})) if (plain(k) !== k) { const p = plain(k); o[p] = merge && o[p] ? merge(o[p], o[k]) : o[k]; delete o[k]; moved = true; }
     return moved;
   }
+  const MERGE = {
+    excused: (a, b) => ({ ...a, ...b }),
+    adjust: (a, b) => ({ ...a, ...b, courses: { ...(a.courses || {}), ...(b.courses || {}) } }),
+  };
   const COURSE_TABLE = 'table[aria-label="coursewise attendance table"]';
-  const { h, plural, fmt, tone, mustText, bar, dayLabel, niceDate, nicePeriod, startTime, ico, sep, chip, pills, stepper, acc, tween, placeThumb, absentSummary, absentDays, daySeg, hrsOf } = UI;
+  const { h, plural, fmt, tone, mustText, bar, dayLabel, niceDate, nicePeriod, startTime, ico, sep, chip, pills, stepper, acc, tween, placeThumb, absentSummary, absentDays, hrsOf } = UI;
 
   // ---------------------------------------------------------------- parsing
   function parseRow(tr) {
@@ -586,7 +591,7 @@
 
     pill.className = `pill ${tone(op, threshold)}${pill.classList.contains("clicked") ? " clicked" : ""}`;
     pill.setAttribute("aria-expanded", String(A.open));
-    const tag = UI.vibeTag(op, threshold); tag.classList.add("sub");
+    const tag = UI.vibeTag(op, threshold, true); tag.classList.add("sub");
     pill.replaceChildren(h("i"), `${op.toFixed(2)}%`, UI.detain(op) ? tag : lowN ? h("span", { class: "sub" }, `${lowN} low`) : tag); // overall low: say so; else "N low" if some course is; else the overall's tag
     sub.replaceChildren(snap.semester, sep(), `minimum ${threshold}%`);
     for (const [id, btn] of tabs) {
@@ -708,6 +713,21 @@
   // The observer fires on every portal DOM change (MUI animations, ripples). When the table reads the same as last time and the
   // drawer is already drawn, there is nothing to do, so skip the storage round trip. The 30s cap still refreshes "synced".
   let lastRead = "", lastReadAt = 0;
+  // Marks the numbers can't use: Calc never counts more marked hours than the portal's own absent hours for the course. That used to be
+  // silent, so "nothing updates" looked like a broken extension. Say how much is left out and offer a report (counts only, no hours or names).
+  const markedHrs = (rows, hasCc) => (rows || []).filter((r) => !r.gone && !(hasCc && r.p && r.s === "cc")).reduce((n, r) => n + r.h, 0);
+  function markNote(marked, counted, hasCc) {
+    const lost = marked - counted;
+    if (!(lost > 0.01)) return null;
+    const report = () => {
+      const lines = UI.diag({ version: chrome.runtime.getManifest().version, page: location.pathname, found: `some marked hours are not counted: yes; co-curricular column: ${hasCc ? "yes" : "no"}` });
+      const body = ["**Type:** Bug", "**Where:** Absent details, Mark hours", "", "My marked hours are not all counted in my attendance.", "", "---", "Added automatically (no hours, names or numbers):", ...lines.map((l) => `- ${l}`)].join("\n");
+      window.open(`${UI.ABOUT.repo}/issues/new?title=${encodeURIComponent("[Bug] Marked hours are not counted")}&body=${encodeURIComponent(body)}`, "_blank", "noopener");
+    };
+    return h("div", { class: "warnbox" }, h("b", {}, `${fmt(lost)}h of your marks aren't counted`),
+      h("div", { class: "sub" }, "The portal lists fewer absent hours for this course than you marked, so the extra can't be added to your attendance. If that looks wrong, "),
+      h("button", { class: "link", onclick: report }, "report it"));
+  }
   // Opens a pre-filled GitHub issue (the person reviews it and presses Submit). It says what the page looked like, never what it said.
   function reportUnread() {
     const found = `found: table ${document.querySelector(COURSE_TABLE) ? "yes" : "no"}, grid cards ${document.querySelectorAll(CARD).length}, view toggle ${document.querySelector('[aria-label="table view"]') ? "yes" : "no"}, tabs ${document.querySelectorAll('[role="tab"]').length}`;
@@ -721,7 +741,7 @@
     if (snap && attSig && readKey === lastRead && Date.now() - lastReadAt < 30000 && dock?.isConnected && shell && dock.contains(shell.drawer)) return;
     const d = await store.get({ threshold: 75, latest: null, snapshots: {}, adjust: {}, excused: {}, sortBy: "portal", timetable: null, timetableSem: null, bunkBasis: "now", eseTarget: null, medBeforeMse: true, bunkPlan: {}, absentList: null });
     const fix = {};
-    for (const k of ["snapshots", "adjust", "excused", "bunkPlan"]) if (plainKeys(d[k])) fix[k] = d[k];
+    for (const k of ["snapshots", "adjust", "excused", "bunkPlan"]) if (plainKeys(d[k], MERGE[k])) fix[k] = d[k];
     if (d.timetableSem && plain(d.timetableSem) !== d.timetableSem) fix.timetableSem = plain(d.timetableSem);
     if (d.absentList?.sem && plain(d.absentList.sem) !== d.absentList.sem) fix.absentList = { ...d.absentList, sem: plain(d.absentList.sem) };
     if (Object.keys(fix).length) await store.set(fix);
@@ -740,7 +760,7 @@
       const same = prev && JSON.stringify([prev.overall, prev.courses, prev.hasCc]) === JSON.stringify([snap.overall, snap.courses, snap.hasCc]);
       if (same && Date.now() - prev.syncedAt < 60000) snap.syncedAt = prev.syncedAt; // unchanged: don't rewrite storage on every tick
       d.snapshots[snap.semester] = snap;
-      const latest = Object.keys(d.snapshots).sort((a, b) => UI.semRank(b) - UI.semRank(a))[0];
+      const latest = UI.semOrder(d.snapshots)[0];
       if (!same || snap.syncedAt !== prev.syncedAt || d.latest !== latest) await store.set({ snapshots: d.snapshots, latest });
     }
     renderAtt({
@@ -817,7 +837,6 @@
     { s: "later", letter: "L", cls: "l", color: "var(--good)", label: "Later", tip: "Was present: the portal will be updated, count as attended now" },
   ];
   let absSig = "";
-  let sel = new Map(); // row key -> "abs" | "cc" | "med" | "later"
 
   // What the portal's status cell says: the hours ("1 Hr Medical Leave") and whether it already labelled the hour medical / co-curricular, else plain absent.
   const statusOf = (status) => ({
@@ -831,10 +850,11 @@
         if (tds.length < 4) return null;
         const date = tds[0].querySelector("p")?.textContent.trim();
         const period = tds[1].querySelector("p")?.textContent.trim();
+        const time = tds[1].querySelector("span")?.textContent.trim() || "";
         if (!date || !period) return null;
         const { h: hrs, kind: portal } = statusOf(tds[3].textContent); // what the portal already says about this hour
         const day = tds[0].querySelector("span")?.textContent.trim() || ""; // the weekday sits in its own element
-        return { k: `${date}|${period}`, date, day, period, type: tds[2].textContent.trim(), h: hrs, portal };
+        return { k: `${date}|${period}`, date, day, period, time, type: tds[2].textContent.trim(), h: hrs, portal };
       })
       .filter(Boolean);
   }
@@ -862,36 +882,37 @@
   }
 
   // forced = the course picked in the filter on /main/absence; without it the course is the one whose View Details was clicked.
-  let absQuick = "", absQuickAt = 0; // what the table looked like when the panel was last built (skips the storage read on idle ticks)
+  // The marking uses the same pill + drawer as the all-courses list (renderAbsDrawer), for this one course.
+  let absQuick = "", absQuickAt = 0; // what the table looked like when the drawer was last built (skips the storage read on idle ticks)
   async function tickAbs(forced) {
     const rows = parseAbsentRows();
     if (!rows.length) return;
     const quick = `${forced?.key || ""}#${rows.map((r) => r.k + r.portal).join(",")}`;
-    if (absSig && absSig !== "noctx" && quick === absQuick && Date.now() - absQuickAt < 30000 && host?.isConnected && dock?.querySelector(".panel")) return;
-    const d = await store.get({ lastCourse: null, snapshots: {}, excused: {}, adjust: {}, medBeforeMse: true });
-    const ctx = forced || d.lastCourse;
+    if (absSig && absSig !== "noctx" && quick === absQuick && Date.now() - absQuickAt < 30000 && host?.isConnected && absShell && dock?.contains(absShell.drawer)) return;
+    const d = await store.get({ lastCourse: null, snapshots: {}, excused: {}, adjust: {}, medBeforeMse: true, absentList: null });
+    const ctx0 = forced || d.lastCourse;
+    let ctx = ctx0 && { ...ctx0, semester: plain(ctx0.semester || "") }; // a course remembered before 1.0.1 carries the portal's "[On Roll]" label: marks would be saved under a key the attendance page never reads
+    if (ctx && !forced && d.absentList?.sem === ctx.semester) { // the remembered course can be stale (page opened by URL or Back): trust the all-courses list
+      const key = courseOwning(rows, d.absentList.rows), c = key && courseIn(d.snapshots[ctx.semester], key);
+      if (c && (c.code || c.name) !== ctx.key) { ctx = { semester: ctx.semester, key: c.code || c.name, name: c.name, at: Date.now() }; store.set({ lastCourse: ctx }); }
+    }
     await ensureHost();
 
     if (!ctx) {
       if (absSig === "noctx") return;
-      absSig = "noctx";
+      absSig = "noctx"; absShell = null; absCourse = null;
       dock.replaceChildren(
-        h(
-          "div",
-          { class: "panel" },
+        h("div", { class: "panel" },
           h("div", { class: "h3" }, "Which course is this?"),
           h("p", { class: "sub" }, 'This page doesn\'t say. Go back, switch the course list to table view and open a course with its "View Details" button.'),
           h("button", { class: "btn solid cta", onclick: () => history.back() }, "Back to attendance"),
-          h("div", { class: "tagline" }, UI.TAGLINE)
-        )
-      );
+          h("div", { class: "tagline" }, UI.TAGLINE)));
       return;
     }
 
     const m = (d.excused[ctx.semester] = d.excused[ctx.semester] || {});
     const e0 = m[ctx.key];
-    const snap = d.snapshots[ctx.semester];
-    const courseNow = courseIn(snap, ctx.key);
+    const courseNow = courseIn(d.snapshots[ctx.semester], ctx.key);
 
     // Reconcile what we saved with what the portal shows now.
     const saved = reconcileMarks(e0?.rows || [], rows);
@@ -902,181 +923,13 @@
     }
 
     const sig = sigOf(ctx.key, rows, saved);
-    if (sig === absSig) return;
+    if (sig === absSig && absShell && dock.contains(absShell.drawer)) return;
     absSig = sig;
     absQuick = quick; absQuickAt = Date.now();
-    sel = new Map(
-      rows.map((r) => {
-        const u = saved.find((x) => x.k === r.k && !x.gone);
-        return [r.k, r.portal !== "abs" ? r.portal : u ? (u.s === "cc" || u.s === "med" ? u.s : "later") : "abs"];
-      })
-    );
-
-    // This course's saved rows as they'd be now: the portal's own labels and "updated on the portal" rows stay,
-    // plus your current picks for the plain-absent hours.
-    const marksNow = (entry) => [
-      ...(entry?.rows || []).filter((r) => r.p || r.gone),
-      ...rows.filter((r) => r.portal === "abs" && sel.get(r.k) !== "abs").map((r) => ({ k: r.k, h: r.h, s: sel.get(r.k), gone: false })),
-    ];
-
-    // ---- persistence: every change is saved straight away
-    async function persist() {
-      const cur = await store.get({ excused: {}, snapshots: {} });
-      const mm = (cur.excused[ctx.semester] = cur.excused[ctx.semester] || {});
-      const all = marksNow(mm[ctx.key]);
-      if (all.length) {
-        const c = courseIn(cur.snapshots[ctx.semester], ctx.key);
-        mm[ctx.key] = { rows: all, baseAbsent: c?.absent ?? undefined };
-      } else delete mm[ctx.key];
-      await store.set({ excused: cur.excused });
-      d.excused = cur.excused;
-      absSig = sigOf(ctx.key, rows, all); // our own write, no need to rebuild the panel
-    }
-
-    // ---- UI
-    const segs = new Map(); // row key -> its 4 buttons
-    const daySegs = []; // { keys, btns }: the whole-day control of a day with 2+ markable hours
-    const preview = h("div", { class: "blk preview" });
-    const actions = h("div", { class: "actions" });
-    const toastBox = h("div", {});
-    let toastTimer;
-
-    function paint() {
-      for (const [k, btns] of segs) {
-        btns.forEach((b) => {
-          const on = b.dataset.s === sel.get(k);
-          b.classList.toggle("on", on);
-          b.setAttribute("aria-pressed", String(on));
-        });
-      }
-      for (const { keys, btns } of daySegs) btns.forEach((b) => {
-        const on = keys.every((k) => sel.get(k) === b.dataset.s);
-        b.classList.toggle("on", on);
-        b.setAttribute("aria-pressed", String(on));
-      });
-      if (!snap || !courseNow) { preview.textContent = ""; return; }
-      const exc2 = { ...(d.excused[ctx.semester] || {}), [ctx.key]: { rows: marksNow(d.excused[ctx.semester]?.[ctx.key]), baseAbsent: courseNow.absent } };
-      const base = Calc.effective(snap, {}, {});
-      const now = Calc.actual(snap, d.adjust[ctx.semester], exc2, { medInCourse: Plan.medInCourse(d.medBeforeMse) }); // the same numbers as the drawer
-      const cb = base.courses.find((c) => c.key === ctx.key), cn = now.courses.find((c) => c.key === ctx.key);
-      const p = (a, s) => Calc.percent(a, s).toFixed(2);
-      preview.replaceChildren(
-        h("div", { class: "it2 main" }, h("div", { class: "row" }, h("span", {}, h("b", {}, "Overall")), h("span", { class: "big" }, `${p(base.overall.attended, base.overall.scheduled)}% → `, h("b", { class: "good" }, `${p(now.overall.attended, now.overall.scheduled)}%`)))),
-        h("div", { class: "it2 minor" }, h("div", { class: "row" }, h("span", {}, h("b", {}, "This course")), h("span", {}, `${p(cb.attended, cb.scheduled)}% → `, h("b", { class: "good" }, `${p(cn.attended, cn.scheduled)}%`))))
-      );
-    }
-
-    function toast(text, undo) {
-      clearTimeout(toastTimer);
-      toastBox.replaceChildren(
-        h("div", { class: "toast", role: "status" }, h("span", {}, text), undo ? h("button", { class: "link", onclick: () => { toastBox.replaceChildren(); undo(); } }, "Undo") : null)
-      );
-      toastTimer = setTimeout(() => toastBox.replaceChildren(), 7000);
-    }
-
-    async function change(keys, choice, text) {
-      const prev = new Map(sel);
-      keys.forEach((k) => sel.set(k, choice));
-      paint();
-      await persist();
-      toast(text, async () => { sel = prev; paint(); await persist(); });
-    }
-
-    function drawActions(confirming) {
-      const free = rows.filter((r) => r.portal === "abs");
-      if (confirming) {
-        actions.replaceChildren(
-          h("span", { class: "bad" }, "Reset every hour to absent?"),
-          h("button", { class: "btn danger sm", onclick: () => { drawActions(false); change(free.map((r) => r.k), "abs", "All hours reset to absent"); } }, "Yes, reset"),
-          h("button", { class: "btn sm", onclick: () => drawActions(false) }, "Cancel")
-        );
-      } else {
-        actions.replaceChildren(
-          h("button", { class: "btn sm", onclick: () => change(free.map((r) => r.k), "later", "All hours marked Later") }, "Mark all later"),
-          h("button", { class: "btn danger sm", onclick: () => drawActions(true) }, "Reset all")
-        );
-      }
-    }
-
-    const hourEls = rows.map((r) => {
-      const when = `${niceDate(`${r.date} ${r.day}`)}, ${nicePeriod(r.period)}`;
-      const left = (locked) => h("span", {}, h("b", {}, when), h("div", { class: "sub wrap" }, r.type, sep(), `${fmt(r.h)}h`, locked ? [h("span", { class: "nw lockg" }, ico("lock", "ic lk"), " Set by portal")] : null));
-      if (r.portal !== "abs") { // the portal already labelled it: same control, its mark lit, the rest disabled
-        return h("div", { class: "it2" }, h("div", { class: "row" }, left(true),
-          h("span", { class: "seg lockd", role: "group", title: "The portal already shows this", "aria-label": `${when}: set by the portal` },
-            CHOICES.map((c) => h("button", { class: `${c.cls}${c.s === r.portal ? " on" : ""}`, disabled: true, title: c.tip, "aria-label": c.label }, c.letter)))));
-      }
-      const btns = CHOICES.map((c) =>
-        h("button", { class: `${c.cls}`, "data-s": c.s, title: c.tip, "aria-label": `${c.label}: ${when}`, onclick: () => { if (sel.get(r.k) !== c.s) change([r.k], c.s, `${when} → ${c.label}.`); } }, c.letter)
-      );
-      segs.set(r.k, btns);
-      return h("div", { class: "it2" }, h("div", { class: "row" }, left(false), h("span", { class: "seg", role: "group", "aria-label": `Mark ${when}` }, btns)));
-    });
-    // A day with 2+ hours you can mark gets a header with a whole-day control (the portal lists a day's hours together).
-    const hourList = [];
-    rows.forEach((r, i) => {
-      if (i === 0 || rows[i - 1].date !== r.date) {
-        const free = rows.filter((x) => x.date === r.date && x.portal === "abs");
-        if (free.length > 1) {
-          const label = niceDate(`${r.date} ${r.day}`), keys = free.map((x) => x.k);
-          const seg = daySeg({ choices: CHOICES, label, onpick: (s) => {
-            if (keys.some((k) => sel.get(k) !== s)) change(keys, s, `${label}, all ${plural(keys.length, "hour")} → ${CHOICES.find((c) => c.s === s).label}.`);
-          } });
-          daySegs.push({ keys, btns: [...seg.querySelectorAll("button")] });
-          hourList.push(h("div", { class: "pday mk" }, h("span", {}, h("b", {}, label), " ", h("span", { class: "sub" }, `${fmt(free.reduce((n, x) => n + x.h, 0))}h to mark`)), seg));
-        }
-      }
-      hourList.push(hourEls[i]);
-    });
-
-    // Hours you marked that the portal has since updated: confirm they are really present now.
-    const gone = saved.filter((r) => r.gone);
-    const goneBox = gone.length
-      ? h(
-          "div",
-          { class: "updated" },
-          h("b", { class: "good" }, "Updated on the portal"),
-          h("div", { class: "sub" }, "No longer listed as absent. Confirm they are present now."),
-          gone.map((r) => {
-            const [date, period] = r.k.split("|");
-            return h(
-              "div",
-              { class: "row", style: "margin-top:12px" },
-              h("span", {}, `${niceDate(date)}, ${nicePeriod(period)} (${fmt(r.h)}h)`),
-              h("button", { class: "btn sm", onclick: async () => {
-                const cur = await store.get({ excused: {}, snapshots: {} });
-                const e = cur.excused[ctx.semester]?.[ctx.key];
-                if (!e) return;
-                e.rows = e.rows.filter((x) => x.k !== r.k);
-                const c = courseIn(cur.snapshots[ctx.semester], ctx.key);
-                if (e.rows.length) e.baseAbsent = c?.absent ?? e.baseAbsent;
-                else delete cur.excused[ctx.semester][ctx.key];
-                await store.set({ excused: cur.excused });
-                absSig = "";
-                tickAbs(forced); // keep the course picked in the /main/absence filter (without it this resolves to lastCourse: the wrong course)
-              } }, "Confirm present")
-            );
-          })
-        )
-      : null;
-
-    drawActions(false);
-    dock.replaceChildren(
-      h(
-        "div",
-        { class: "panel" },
-        h("div", { class: "h3" }, ctx.name || ctx.key),
-        h("div", { class: "sub" }, `${plural(rows.length, "hour")} listed as absent or leave. Changes save as you click.`),
-        legendEl(),
-        h("div", { class: "blk" }, hourList),
-        goneBox,
-        preview,
-        actions,
-        toastBox,
-        h("div", { class: "tagline" }, UI.TAGLINE)
-      )
-    );
-    paint();
+    absCourse = { semester: ctx.semester, key: ctx.key, name: ctx.name || courseNow?.name || ctx.key };
+    // The same row shape as the all-courses list, so the same drawer draws and marks it.
+    absRows = rows.map((r) => ({ date: r.date, day: r.day, period: r.period, time: r.time, code: courseNow ? courseNow.code : ctx.key, name: absCourse.name, type: r.type, kind: r.portal, h: r.h }));
+    await renderAbsDrawer();
   }
 
   // The all-courses list (/main/absence): save its rows for the toolbar popup's summary and show just a pill.
@@ -1093,8 +946,20 @@
   let absOpen = false, absShell = null;
   let absMark = false;           // the "Mark hours" toggle of the all-courses drawer
   let absRows = [], absData = null;
+  let absCourse = null;          // { semester, key, name } on a single course's page (Absent Details, or /main/absence filtered to one course); null for the all-courses list
   const legendEl = (grid) => h("div", { class: `lg${grid ? " grid" : ""}` }, CHOICES.map((c) => h("span", { title: c.tip }, h("b", { style: `background:${c.color}` }, c.letter), c.label))); // A / C / M / L key, shared by both marking views
   const absKey = (r) => (r.code && r.code.toUpperCase() !== "N/A" ? r.code : r.name);
+  // The Absent Details page doesn't say which course it shows. The all-courses list does (one class per period), so if EVERY hour on
+  // the page is on that list and they all belong to one course, that is the course (the remembered one can be stale). Else null.
+  function courseOwning(rows, list) {
+    const owners = new Set();
+    for (const r of rows) {
+      const x = (list || []).find((y) => y.date === r.date && y.period === r.period);
+      if (!x) return null;
+      owners.add(absKey(x));
+    }
+    return owners.size === 1 ? [...owners][0] : null;
+  }
   // With the filter on "All courses" the list has every course's absent hours, so every course's marks are brought up to
   // date here, the same way its own Absent Details page would (portal medical / co-curricular labels, hours updated on
   // the portal). If the list may be partial (a page control, or a row whose course isn't in the snapshot), nothing is
@@ -1119,16 +984,18 @@
     if (changed) await store.set({ excused: d.excused });
   }
   async function refreshAbsData() {
-    const d = await store.get({ latest: null, snapshots: {}, excused: {}, adjust: {} });
-    absData = { sem: d.latest, snap: d.snapshots[d.latest], excused: d.excused[d.latest] || {}, adjust: d.adjust[d.latest] };
+    const d = await store.get({ latest: null, snapshots: {}, excused: {}, adjust: {}, medBeforeMse: true });
+    const sem = absCourse?.semester || d.latest; // a course page can be an older semester than the latest
+    absData = { sem, snap: d.snapshots[sem], excused: d.excused[sem] || {}, adjust: d.adjust[sem], med: d.medBeforeMse };
   }
-  // Same record the per-course panel writes: excused[sem][courseKey].rows = [{ k: "date|period", h, s, gone }].
+  // The record both pages share: excused[sem][courseKey].rows = [{ k: "date|period", h, s, gone }].
   // list = one or more rows (a whole day can span courses); one read and one write for all of them.
   async function markAbs(list, choice) {
     const d = await store.get({ latest: null, snapshots: {}, excused: {} });
-    const m = (d.excused[d.latest] = d.excused[d.latest] || {});
+    const sem = absCourse?.semester || d.latest;
+    const m = (d.excused[sem] = d.excused[sem] || {});
     for (const r of list) {
-      const c = courseIn(d.snapshots[d.latest], absKey(r));
+      const c = courseIn(d.snapshots[sem], absKey(r));
       if (!c) continue;
       const k = `${r.date}|${r.period}`;
       const rows = (m[c.code || c.name]?.rows || []).filter((x) => x.k !== k);
@@ -1137,31 +1004,79 @@
     }
     await store.set({ excused: d.excused });
   }
-  function drawAbsBody() {
-    if (!absShell || !absData) return;
-    const focused = host.shadowRoot.activeElement;
-    const fk = focused && absShell.drawer.contains(focused) ? focused.dataset.key : null;
-    absShell.markBtn.setAttribute("aria-checked", String(absMark));
-    absShell.markBtn.classList.toggle("on", absMark);
+  function absBodyNodes(on) { // everything in the drawer body, for the Mark hours switch on or off
     const snap = absData.snap;
     const selOf = (r) => { const u = (absData.excused[absKey(r)]?.rows || []).find((x) => x.k === `${r.date}|${r.period}` && !x.gone); return u ? (u.s === "cc" || u.s === "med" ? u.s : "later") : "abs"; };
-    const opts = { on: absMark, choices: CHOICES, selOf, canMark: (r) => !!courseIn(snap, absKey(r)),
-      pick: async (r, choice) => { await markAbs([r], choice); await refreshAbsData(); drawAbsBody(); },
-      pickDay: async (list, choice) => { await markAbs(list, choice); await refreshAbsData(); drawAbsBody(); } };
+    const opts = { on, choices: CHOICES, selOf, canMark: (r) => !!courseIn(snap, absKey(r)),
+      pick: async (r, choice) => { await markAbs([r], choice); await refreshAbsData(); drawAbsBody(false); },
+      pickDay: async (list, choice) => { await markAbs(list, choice); await refreshAbsData(); drawAbsBody(false); } };
     let preview = null;
-    if (absMark && snap) {
-      const base = Calc.effective(snap, {}, {}), now = Calc.effective(snap, absData.adjust, absData.excused);
+    if (snap) { // the numbers show with Mark hours off too; the hint and legend only matter while marking
+      const base = Calc.effective(snap, {}, {});
+      // One course: the numbers the drawer shows (co-curricular and medical count in the course too); all courses: the overall only.
+      const now = absCourse ? Calc.actual(snap, absData.adjust, absData.excused, { medInCourse: Plan.medInCourse(absData.med) }) : Calc.effective(snap, absData.adjust, absData.excused);
       const bp = Calc.percent(base.overall.attended, base.overall.scheduled), np = Calc.percent(now.overall.attended, now.overall.scheduled);
+      const note = markNote(snap.courses.reduce((n, c) => n + markedHrs(absData.excused[c.code || c.name]?.rows, snap.hasCc), 0), now.courses.reduce((n, c) => n + c.excusedHrs, 0), snap.hasCc);
+      const cb = absCourse && base.courses.find((c) => c.key === absCourse.key), cn = absCourse && now.courses.find((c) => c.key === absCourse.key);
+      const pc = (c) => Calc.percent(c.attended, c.scheduled);
       preview = h("div", { class: "it2 main" }, h("div", { class: "row" }, h("span", {}, h("b", {}, "With your marks")), h("span", { class: "big" }, `${bp.toFixed(2)}% to `, h("b", { class: np > bp ? "good" : "" }, `${np.toFixed(2)}%`))),
-        h("p", { class: "sub" }, "Each mark saves straight away. Tap A to undo one. Whole day marks every hour of that day."), legendEl(true));
+        cb && cn ? h("div", { class: "row" }, h("span", { class: "sub" }, "This course"), h("span", { class: "sub" }, `${pc(cb).toFixed(2)}% to `, h("b", { class: pc(cn) > pc(cb) ? "good" : "" }, `${pc(cn).toFixed(2)}%`))) : null,
+        on ? h("p", { class: "sub" }, "Each mark saves straight away. Tap A to undo one. Whole day marks every hour of that day.") : null, on ? legendEl(true) : null, on ? note : null);
     }
-    absShell.body.replaceChildren(...[preview, absentDays(absRows, opts)].flat(Infinity).filter(Boolean));
-    if (fk) absShell.drawer.querySelector(`[data-key="${fk}"]`)?.focus({ preventScroll: true });
+    // Hours you marked that the portal has since updated (one course only): confirm they are really present now.
+    const gone = absCourse ? (absData.excused[absCourse.key]?.rows || []).filter((r) => r.gone) : [];
+    const goneBox = gone.length
+      ? h("div", { class: "updated" }, h("b", { class: "good" }, "Updated on the portal"), h("div", { class: "sub" }, "No longer listed as absent. Confirm they are present now."),
+          gone.map((r) => { const [date, period] = r.k.split("|"); return h("div", { class: "row", style: "margin-top:12px" }, h("span", {}, `${niceDate(date)}, ${nicePeriod(period)} (${fmt(r.h)}h)`), h("button", { class: "btn sm", onclick: () => confirmPresent(r.k) }, "Confirm present")); }))
+      : null;
+    return [goneBox, preview, absentDays(absRows, opts)];
+  }
+  function drawAbsBody(measure = true) { // measure = false after a mark: rows keep their size, so only this view is drawn and the drawer keeps its height
+    if (!absShell || !absData) return;
+    const drawer = absShell.drawer;
+    const focused = host.shadowRoot.activeElement;
+    const fk = focused && drawer.contains(focused) ? focused.dataset.key : null;
+    const top = drawer.scrollTop;
+    absShell.markBtn.setAttribute("aria-checked", String(absMark));
+    absShell.markBtn.classList.toggle("on", absMark);
+    const put = (on) => absShell.body.replaceChildren(...absBodyNodes(on).flat(Infinity).filter(Boolean));
+    // The drawer keeps the height of the taller of its two views (switch on / off), so flipping the switch or marking an hour never moves its top edge, where the switch is.
+    if (!measure) put(absMark);
+    else {
+      drawer.style.minHeight = "0px";
+      put(true); const hOn = drawer.scrollHeight;
+      put(false); const hOff = drawer.scrollHeight;
+      if (absMark) put(true);
+      const max = parseFloat(getComputedStyle(drawer).maxHeight) || Infinity;
+      drawer.style.minHeight = `${Math.min(Math.max(hOn, hOff) + 2, max)}px`; // + its 1px borders
+    }
+    drawer.scrollTop = top;
+    if (fk) drawer.querySelector(`[data-key="${fk}"]`)?.focus({ preventScroll: true });
+  }
+  async function confirmPresent(k) {
+    const d = await store.get({ excused: {}, snapshots: {} });
+    const e = d.excused[absCourse.semester]?.[absCourse.key];
+    if (!e) return;
+    e.rows = e.rows.filter((x) => x.k !== k);
+    const c = courseIn(d.snapshots[absCourse.semester], absCourse.key);
+    if (e.rows.length) e.baseAbsent = c?.absent ?? e.baseAbsent; else delete d.excused[absCourse.semester][absCourse.key];
+    await store.set({ excused: d.excused });
+    await refreshAbsData();
+    drawAbsBody();
   }
   function setAbsOpen(v) {
     if (v && !absOpen && absShell) absShell.drawer.scrollTop = 0;
+    const changed = v !== absOpen;
     absOpen = v;
-    if (absShell) { absShell.drawer.classList.toggle("open", v); absShell.pill.setAttribute("aria-expanded", String(v)); }
+    if (!absShell) return;
+    const ae = host.shadowRoot.activeElement, inside = !!ae && absShell.drawer.contains(ae);
+    absShell.drawer.classList.toggle("open", v); absShell.pill.setAttribute("aria-expanded", String(v));
+    // Keyboard: opening puts focus on the first control; closing from inside (Esc, X) hands it back to the pill. An outside click leaves focus where the click put it.
+    if (changed && v) { // every opening starts with Mark hours off (just the list), never in the marking view left over from last time
+      if (absMark) { absMark = false; drawAbsBody(false); }
+      absShell.markBtn.focus({ preventScroll: true });
+    }
+    else if (changed && inside) absShell.pill.focus({ preventScroll: true });
   }
   async function tickAbsAll() {
     // A single course picked in the filter ("CSEAM633 (4)"): the table is then the same 4-column layout as Absent Details, so mark it there too.
@@ -1187,27 +1102,36 @@
       await syncMarksFromList(rows);
       setupStep("abs", "/main/attendence", null);
     }
+    absCourse = null;
+    absRows = rows;
+    await renderAbsDrawer();
+  }
+
+  // The pill + drawer for absent hours, shared by the all-courses list (absRows = every course, absCourse null) and a single course's page.
+  async function renderAbsDrawer() {
     await ensureHost();
     if (!absShell || !dock.contains(absShell.drawer)) {
       const pill = makePill({ "aria-label": "Absent hours summary", "aria-expanded": "false" }, () => setAbsOpen(!absOpen));
       const sub = h("div", { class: "sub sumline" });
+      const title = h("b", { role: "heading", "aria-level": "2" }, "Absent hours");
       const body = h("div", { class: "blk" });
       // A real on/off switch: the label and track change colour when marking is on.
       const markBtn = h("button", { class: "mkt", role: "switch", "aria-checked": "false", "data-key": "mark-toggle", onclick: () => { absMark = !absMark; drawAbsBody(); } }, h("span", {}, "Mark hours"), h("span", { class: "trk" }));
-      const drawer = h("div", { class: "drawer", role: "dialog", "aria-label": "Absent hours" },
-        h("div", { class: "top" }, h("div", {}, h("b", { role: "heading", "aria-level": "2" }, "Absent hours"), sub), h("span", { class: "topa" }, markBtn, h("button", { class: "xb", "aria-label": "Close", onclick: () => setAbsOpen(false) }, ico("close")))),
+      const drawer = h("div", { class: "drawer abs", role: "dialog", "aria-label": "Absent hours" },
+        h("div", { class: "top" }, h("div", {}, title, sub), h("span", { class: "topa" }, markBtn, h("button", { class: "xb", "aria-label": "Close", onclick: () => setAbsOpen(false) }, ico("close")))),
         body, h("div", { class: "tagline" }, UI.TAGLINE));
       dock.replaceChildren(drawer, pill);
-      absShell = { pill, sub, body, drawer, markBtn };
+      absShell = { pill, sub, body, drawer, markBtn, title };
     }
-    absShell.pill.replaceChildren(h("i", { class: "bad-dot" }), `${fmt(hrsOf(rows, "abs"))}h absent`,
-      hrsOf(rows, "cc") || hrsOf(rows, "med") ? h("span", { class: "sub" }, [hrsOf(rows, "cc") ? `${fmt(hrsOf(rows, "cc"))}h co-curricular` : null, hrsOf(rows, "med") ? `${fmt(hrsOf(rows, "med"))}h medical` : null].filter(Boolean).join(", ")) : null);
-    absShell.sub.replaceChildren(...absentSummary(rows).flat(Infinity).filter(Boolean));
-    absRows = rows;
+    absShell.title.textContent = absCourse ? absCourse.name : "Absent hours";
+    const extra = [hrsOf(absRows, "cc") ? `${fmt(hrsOf(absRows, "cc"))}h co-curricular` : null, hrsOf(absRows, "med") ? `${fmt(hrsOf(absRows, "med"))}h medical` : null].filter(Boolean).join(", ");
+    absShell.pill.replaceChildren(...[h("i", { class: "bad-dot" }), `${fmt(hrsOf(absRows, "abs"))}h absent`, extra ? h("span", { class: "sub" }, extra) : null].filter(Boolean)); // a null child would print "null"
+    absShell.sub.replaceChildren(...absentSummary(absRows).flat(Infinity).filter(Boolean));
     await refreshAbsData();
     drawAbsBody();
     setAbsOpen(absOpen);
   }
+
 
   // ---------------------------------------------------------------- driver
   let timer, lastRoute = null;
@@ -1226,7 +1150,7 @@
         switching = false;
         if (swapped) { // another student's data: drop what this tab was showing for the last one
           planSel = new Map(); planKey = null; todayPick = new Set(); courseOpen.clear(); planMonth = 0;
-          attSig = ""; absSig = ""; ttSig = ""; absData = null;
+          attSig = ""; absSig = ""; ttSig = ""; absData = null; absQuick = ""; absCourse = null; absRows = []; lastRead = ""; // the absent drawer, too: nothing of the last student stays on screen
         }
         tick();
       }, () => { switching = false; });
@@ -1239,7 +1163,7 @@
     const r = route();
     syncGutter();
     if (r !== lastRoute) { // page changed: clear the old UI, and a drawer left open on the last page shrinks back to its pill
-      if (lastRoute !== null) { absOpen = false; attOpen = false; absShell = null; shell = null; drawerTour?.end(); tourChecked = false; }
+      if (lastRoute !== null) { absOpen = false; attOpen = false; absShell = null; absCourse = null; shell = null; drawerTour?.end(); tourChecked = false; }
       dock?.replaceChildren(); attSig = ""; absSig = ""; ttSig = ""; unreadSince = 0; unreadShown = false; lastRoute = r;
     }
     if (!r) {
@@ -1265,7 +1189,15 @@
   const LIVE = ["threshold", "eseTarget", "bunkBasis", "medBeforeMse", "adjust", "excused", "timetable", "sortBy", "tour"];
   chrome.storage.onChanged.addListener((ch, area) => {
     if (area === "local" && "profile" in ch && ch.profile.newValue !== profileId) profileId = null; // changed elsewhere: check again before the next save
-    if (area !== "local" || !chrome.runtime?.id || route() !== "att" || !LIVE.some((k) => k in ch)) return; // the marking pages keep their own state
+    // The absent pages show marks, so they follow changes made elsewhere (the popup clearing marks, another tab). Not absentList / lastCourse:
+    // these pages write them themselves, and reacting to our own write would loop.
+    if (area === "local" && chrome.runtime?.id && (route() === "abs" || route() === "absall") && ["excused", "adjust", "snapshots", "medBeforeMse"].some((k) => k in ch)) {
+      absQuick = ""; absSig = "";
+      clearTimeout(timer);
+      timer = setTimeout(() => { timer = 0; tick(); }, 50);
+      return;
+    }
+    if (area !== "local" || !chrome.runtime?.id || route() !== "att" || !LIVE.some((k) => k in ch)) return;
     if ("tour" in ch && !ch.tour.newValue?.drawer && !drawerTour) { tourChecked = false; attSig = ""; } // "Replay" in the popup: show the drawer tour again
     lastRead = ""; // a setting changed: the next tick must re-read storage even if the table looks the same
     clearTimeout(timer);
