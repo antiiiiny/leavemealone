@@ -9,7 +9,7 @@ Your real CUE attendance, with co-curricular and medical hours counted, and wher
 ## Description
 Unofficial. Not affiliated with CHRIST (Deemed to be University) or the ESPro / CUE portal.
 
-leavemealone reads your attendance on the CUE portal and shows you exactly where you stand. The portal often lags behind: co-curricular hours and medical leave can take weeks to show up. leavemealone lets you mark those hours yourself and shows your actual attendance, per course and overall.
+leavemealone reads your attendance on the CUE portal and shows you exactly where you stand. Mark the hours you spent on co-curricular activities or medical leave, and see your attendance with them counted, per course and overall.
 
 • Actual attendance: the portal's numbers plus the hours you mark as co-curricular or medical
 • Medical leave counted the way the university's policy says (74.5% to 85% overall)
@@ -32,7 +32,7 @@ Developed by Alicia & Antony Co.
 Productivity (or Education)
 
 ## Single purpose
-Shows CUE portal users their actual attendance (including co-curricular and medical hours the portal hasn't added yet) and where they stand against the university's attendance requirements, from the portal pages they open.
+Shows CUE portal users their attendance, including co-curricular and medical hours they mark, and where they stand against the university's attendance requirements, from the portal pages they open.
 
 ## Permission justifications
 - storage: saves the attendance numbers, marks, timetable and settings locally in the browser so the popup and alerts work without reopening the portal.
